@@ -1,0 +1,3421 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+	<meta charset="UTF-8">
+	<title>Aetheria</title>
+	<style>
+		body {
+			background-color: #0a0a15;
+			color: white;
+			font-family: 'Segoe UI', Arial, sans-serif;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			height: 100vh;
+			width: 100vw;
+			margin: 0;
+			overflow: hidden;
+			user-select: none;
+		}
+
+		#game-container {
+			position: relative;
+			width: 100vw;
+			height: 100vh;
+			background: linear-gradient(135deg, #0a0a15 0%, #1a0a2e 100%);
+			display: flex;
+			overflow: hidden;
+		}
+
+		/* 上部コントロールバー */
+		.top-bar {
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 60px;
+			background: linear-gradient(90deg, rgba(10, 10, 21, 0.95) 0%, rgba(26, 10, 46, 0.95) 100%);
+			border-bottom: 2px solid #4a2a8f;
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			padding: 0 40px;
+			box-sizing: border-box;
+			z-index: 10;
+		}
+
+		.mode-toggle-btn {
+			background: #2a1a4a;
+			color: #fff;
+			border: 1px solid #6a4a9f;
+			padding: 6px 14px;
+			cursor: pointer;
+			margin-right: 8px;
+			font-weight: bold;
+			border-radius: 4px;
+			font-size: 14px;
+		}
+
+		.mode-toggle-btn.active {
+			background: #ff1493;
+			color: #fff;
+			border-color: #ff1493;
+		}
+
+		/* 曲名ボタン */
+		#music-info-btn {
+			color: #ccc;
+			font-size: 16px;
+			font-weight: bold;
+			background: rgba(255, 255, 255, 0.05);
+			padding: 8px 18px;
+			border: 1px solid #444;
+			border-radius: 4px;
+			cursor: pointer;
+			transition: background 0.2s, color 0.2s, border-color 0.2s;
+			max-width: 400px;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		#music-info-btn:hover {
+			background: rgba(255, 20, 147, 0.15);
+			color: #ff1493;
+			border-color: #ff1493;
+		}
+
+		/* 中央プレイエリア */
+		#main-play-field {
+			width: 100%;
+			height: 100%;
+			position: relative;
+			background: transparent;
+			overflow: hidden;
+			padding-top: 60px;
+			box-sizing: border-box;
+		}
+
+		#play-area {
+			position: absolute;
+			left: 50%;
+			transform: translateX(-50%);
+			width: 650px;
+			height: 100%;
+			background: linear-gradient(90deg, rgba(10, 10, 25, 0.75) 0%, rgba(20, 10, 30, 0.75) 100%);
+			border-left: 3px solid #ff1493;
+			border-right: 3px solid #ff1493;
+			display: flex;
+			z-index: 2;
+		}
+
+		/* 体力バー設定 */
+		#health-bar-container {
+			position: absolute;
+			left: -25px;
+			top: 0;
+			width: 12px;
+			height: 100%;
+			background: rgba(255, 255, 255, 0.05);
+			border: 1px solid rgba(255, 20, 147, 0.5);
+			border-radius: 6px;
+			overflow: hidden;
+			box-sizing: border-box;
+		}
+
+		#health-bar-fill {
+			position: absolute;
+			bottom: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			background: linear-gradient(to top, #ff1493, #ff69b4);
+			box-shadow: 0 0 10px rgba(255, 20, 147, 0.6);
+			transition: height 0.1s ease-out;
+		}
+
+		.lane {
+			position: relative;
+			flex: 1;
+			height: 100%;
+			border-right: 1px solid rgba(255, 20, 147, 0.2);
+			box-sizing: border-box;
+			contain: layout paint;
+		}
+
+		.lane:last-child {
+			border-right: none;
+		}
+
+		.lane-light {
+			position: absolute;
+			bottom: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			background: linear-gradient(to top, rgba(255, 20, 147, 0.3), transparent);
+			opacity: 0;
+			pointer-events: none;
+		}
+
+		.lane.active .lane-light {
+			opacity: 1;
+		}
+
+		/* 判定ターゲット枠（当たり判定はこの四角の範囲） */
+		.lane-target {
+			position: absolute;
+			bottom: 120px;
+			left: 50%;
+			transform: translate(-50%, 50%);
+			width: 75px;
+			height: 75px;
+			border: 3px solid rgba(255, 20, 147, 0.5);
+			border-radius: 6px;
+			box-sizing: border-box;
+			z-index: 3;
+		}
+
+		.lane.active .lane-target {
+			border-color: #ff1493;
+			background: rgba(255, 20, 147, 0.3);
+			box-shadow: 0 0 20px #ff1493;
+		}
+
+		/* ノーツ */
+		.note {
+			position: absolute;
+			top: 0;
+			width: 92%;
+			left: 4%;
+			height: 30px;
+			border-radius: 5px;
+			z-index: 4;
+			will-change: transform;
+			backface-visibility: hidden;
+			transform: translateZ(0);
+			pointer-events: none;
+		}
+
+		.note.normal {
+			background: linear-gradient(180deg, #00d9ff 0%, #0099ff 100%);
+			border-top: 2px solid #fff;
+			border-bottom: 2px solid #fff;
+			box-shadow: 0 2px 10px rgba(0, 217, 255, 0.7);
+		}
+
+		/* ロングノーツ */
+		.note.long {
+			background: linear-gradient(180deg, #ff1493 0%, #ff69b4 100%);
+			border-top: 2px solid #fff;
+			border-bottom: 2px solid #fff;
+			box-shadow: 0 2px 10px rgba(255, 20, 147, 0.7);
+		}
+
+		/* UI */
+		#fg-ui-layer {
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			pointer-events: none;
+			z-index: 5;
+		}
+
+		#score-display {
+			position: absolute;
+			bottom: 40px;
+			right: 60px;
+			font-size: 54px;
+			font-weight: bold;
+			font-family: monospace;
+			text-shadow: 0 0 12px #ff1493;
+		}
+
+		#combo-container {
+			position: absolute;
+			left: 78%;
+			top: 40%;
+			text-align: center;
+			width: 200px;
+			opacity: 0;
+			transform: scale(0.8);
+			transition: transform 0.05s ease-out;
+		}
+
+		#combo-container.pop {
+			opacity: 1;
+			transform: scale(1);
+		}
+
+		#combo-count {
+			font-size: 84px;
+			font-weight: 900;
+			color: #ff1493;
+			font-style: italic;
+			text-shadow: 0 0 12px #ff69b4;
+		}
+
+		#judge-rating {
+			position: absolute;
+			left: 50%;
+			bottom: 200px;
+			transform: translateX(-50%);
+			font-size: 48px;
+			font-weight: bold;
+			font-style: italic;
+			opacity: 0;
+		}
+
+		/* 各種判定の文字カラー設定 */
+		.rating-perfect {
+			color: #00d9ff;
+			text-shadow: 0 0 15px #00d9ff;
+		}
+
+		.rating-great {
+			color: #ffb700;
+			text-shadow: 0 0 15px #ffb700;
+		}
+
+		.rating-miss {
+			color: #ff1493;
+			text-shadow: 0 0 15px #ff1493;
+		}
+
+		#editor-status-indicator {
+			position: absolute;
+			left: 50%;
+			top: 90px;
+			transform: translateX(-50%);
+			font-size: 24px;
+			font-weight: bold;
+			color: #ff3b3b;
+			text-shadow: 0 0 10px #000000;
+			background: rgba(0, 0, 0, 0.6);
+			padding: 5px 20px;
+			border-radius: 20px;
+			display: none;
+		}
+
+		.key-guide {
+			position: absolute;
+			bottom: 50px;
+			left: 50%;
+			transform: translateX(-50%);
+			width: 650px;
+			display: flex;
+			justify-content: space-between;
+			padding: 0 2px;
+			box-sizing: border-box;
+		}
+
+		.key-box {
+			flex: 1;
+			height: 50px;
+			background: rgba(5, 5, 15, 0.9);
+			border: 2px solid #ff1493;
+			border-radius: 4px;
+			text-align: center;
+			line-height: 50px;
+			font-weight: bold;
+			color: #ff1493;
+			box-sizing: border-box;
+			font-size: 24px;
+			margin: 0 4px;
+		}
+
+		/* メニューレイヤー */
+		.menu-overlay {
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			background: rgba(3, 3, 10, 0.96);
+			display: flex;
+			flex-direction: column;
+			justify-content: flex-start;
+			align-items: center;
+			z-index: 100;
+			overflow-y: auto;
+			padding: 40px 0;
+			box-sizing: border-box;
+		}
+
+		.file-input-container {
+			margin-bottom: 20px;
+			width: 550px;
+			box-sizing: border-box;
+			display: flex;
+			flex-direction: column;
+			gap: 10px;
+		}
+
+		.file-input-label {
+			color: #aaa;
+			font-size: 14px;
+			text-align: center;
+			background: rgba(255, 255, 255, 0.03);
+			padding: 15px 20px;
+			border: 1px dashed #444;
+			border-radius: 6px;
+			cursor: pointer;
+			transition: background 0.2s, border-color 0.2s;
+		}
+
+		.file-input-label:hover {
+			background: rgba(255, 20, 147, 0.05);
+			border-color: #ff1493;
+		}
+
+		#audio-file {
+			display: none;
+		}
+
+		/* 曲選択リスト */
+		.music-select-modal-overlay {
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100vw;
+			height: 100vh;
+			background: rgba(0, 0, 0, 0.85);
+			z-index: 200;
+			display: none;
+			justify-content: center;
+			align-items: center;
+		}
+
+		.music-select-modal-content {
+			background: #111122;
+			border: 2px solid #ff1493;
+			border-radius: 10px;
+			width: 550px;
+			max-height: 70vh;
+			padding: 25px;
+			box-sizing: border-box;
+			position: relative;
+			display: flex;
+			flex-direction: column;
+			box-shadow: 0 0 30px rgba(255, 20, 147, 0.4);
+		}
+
+		.music-select-modal-title {
+			font-size: 18px;
+			font-weight: bold;
+			color: #ff1493;
+			margin-bottom: 15px;
+			padding-right: 80px;
+		}
+
+		.music-select-modal-close {
+			position: absolute;
+			top: 15px;
+			right: 20px;
+			background: transparent;
+			border: none;
+			color: #ff5555;
+			font-size: 24px;
+			font-weight: bold;
+			cursor: pointer;
+			transition: color 0.2s;
+			z-index: 10;
+		}
+
+		.music-select-modal-close:hover {
+			color: #ff8888;
+		}
+
+		.music-modal-header-actions {
+			display: flex;
+			gap: 8px;
+			margin-right: 35px;
+		}
+
+		.music-select-container {
+			background: rgba(0, 0, 0, 0.4);
+			border: 1px solid #333;
+			border-radius: 6px;
+			width: 100%;
+			overflow-y: auto;
+			padding: 6px;
+			box-sizing: border-box;
+			flex: 1;
+		}
+
+		.music-item {
+			display: flex;
+			align-items: center;
+			padding: 8px 12px;
+			margin: 6px 0;
+			background: rgba(255, 255, 255, 0.05);
+			border-radius: 4px;
+			cursor: pointer;
+			font-size: 14px;
+			transition: background 0.2s;
+			justify-content: space-between;
+		}
+
+		.music-item:hover {
+			background: rgba(255, 20, 147, 0.15);
+		}
+
+		.music-item.selected {
+			background: rgba(255, 20, 147, 0.3);
+			border: 1px solid #ff1493;
+		}
+
+		.music-item-name {
+			flex: 1;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			margin-left: 8px;
+		}
+
+		.track-batch-check {
+			margin-right: 8px;
+			cursor: pointer;
+		}
+
+		.menu-btn {
+			padding: 12px 35px;
+			font-size: 18px;
+			background: #ff1493;
+			color: #fff;
+			border: none;
+			border-radius: 4px;
+			cursor: pointer;
+			font-weight: bold;
+			box-shadow: 0 0 15px rgba(255, 20, 147, 0.4);
+			margin: 8px;
+			transition: transform 0.1s, background 0.2s;
+		}
+
+		.menu-btn:hover:not(:disabled) {
+			transform: scale(1.03);
+			background: #fff;
+		}
+
+		.menu-btn:disabled {
+			background: #444;
+			color: #888;
+			box-shadow: none;
+			cursor: not-allowed;
+		}
+
+		.editor-btn {
+			background: #ffaa00;
+			box-shadow: 0 0 15px rgba(255, 170, 0, 0.3);
+		}
+
+		.editor-btn:hover:not(:disabled) {
+			background: #fff;
+		}
+
+		.secondary-btn {
+			background: #221c35;
+			color: #d17fff;
+			border: 2px solid #d17fff;
+			box-shadow: 0 0 15px rgba(209, 127, 255, 0.3);
+		}
+
+		.secondary-btn:hover {
+			background: #d17fff !important;
+			color: #000 !important;
+		}
+
+		/* 設定エリア */
+		.setting-panel,
+		.password-section,
+		.manage-panel {
+			background: rgba(255, 255, 255, 0.04);
+			border: 1px solid #333;
+			padding: 12px 20px;
+			border-radius: 8px;
+			margin-top: 10px;
+			text-align: center;
+			width: 550px;
+			box-sizing: border-box;
+		}
+
+		.setting-row {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			margin: 8px 0;
+			font-size: 14px;
+			color: #ccc;
+		}
+
+		.setting-row label {
+			font-weight: bold;
+			color: #00d2ff;
+		}
+
+		.setting-slider {
+			width: 280px;
+			cursor: pointer;
+		}
+
+		.setting-val-display {
+			width: 60px;
+			text-align: right;
+			font-family: monospace;
+			color: #fff;
+			font-weight: bold;
+		}
+
+		.pwd-input {
+			background: #111;
+			border: 2px solid #555;
+			color: #fff;
+			font-size: 20px;
+			padding: 6px;
+			width: 180px;
+			text-align: center;
+			font-family: monospace;
+			letter-spacing: 1px;
+			border-radius: 4px;
+			text-transform: uppercase;
+		}
+
+		.pwd-input:focus {
+			border-color: #00d2ff;
+			outline: none;
+		}
+
+		/* 譜面管理リスト */
+		.chart-manage-list {
+			max-height: 140px;
+			overflow-y: auto;
+			text-align: left;
+			margin-top: 10px;
+			background: rgba(0, 0, 0, 0.3);
+			border-radius: 4px;
+			padding: 6px;
+		}
+
+		.chart-manage-item {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 8px;
+			background: rgba(255, 255, 255, 0.03);
+			margin-bottom: 6px;
+			border-radius: 4px;
+			font-size: 13px;
+		}
+
+		.chart-rename-input {
+			background: #222;
+			border: 1px solid #555;
+			color: #fff;
+			padding: 4px 6px;
+			font-size: 13px;
+			width: 180px;
+			border-radius: 3px;
+		}
+
+		.chart-code-disp {
+			font-family: monospace;
+			background: #111;
+			padding: 3px 8px;
+			color: #ffaa00;
+			border-radius: 3px;
+			cursor: pointer;
+		}
+
+		.small-del-btn {
+			background: #ff5555;
+			color: white;
+			border: none;
+			padding: 4px 10px;
+			border-radius: 3px;
+			cursor: pointer;
+			font-size: 12px;
+		}
+
+		.batch-del-check {
+			display: none;
+			margin-right: 8px;
+		}
+
+		/* リザルト画面 */
+		#result-overlay {
+			display: none;
+			position: absolute;
+			top: 0; left: 0;
+			width: 100%; height: 100%;
+			background: rgba(3, 3, 12, 0.97);
+			flex-direction: column;
+			justify-content: center;
+			align-items: center;
+			z-index: 100;
+			overflow-y: auto;
+			padding: 30px 0;
+			box-sizing: border-box;
+		}
+
+		#result-title {
+			font-size: 38px;
+			color: #ffaa00;
+			font-weight: bold;
+			margin-bottom: 6px;
+			letter-spacing: 4px;
+			text-shadow: 0 0 18px rgba(255, 170, 0, 0.6);
+		}
+
+		#result-music-name {
+			font-size: 18px;
+			color: #888;
+			margin-bottom: 28px;
+			max-width: 600px;
+			text-align: center;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		#result-fc-badge {
+			display: none;
+			font-size: 28px;
+			font-weight: 900;
+			font-style: italic;
+			letter-spacing: 3px;
+			margin-top: -18px;
+			margin-bottom: 24px;
+			text-align: center;
+		}
+
+		#result-fc-badge.show {
+			display: block;
+		}
+
+		#result-fc-badge.fc-type {
+			color: #00d9ff;
+			text-shadow: 0 0 12px #00d9ff, 0 0 25px rgba(0, 217, 255, 0.6);
+		}
+
+		#result-fc-badge.ap-type {
+			color: #ffd700;
+			text-shadow: 0 0 12px #ffd700, 0 0 25px rgba(255, 215, 0, 0.7);
+		}
+
+		.result-stats-container {
+			display: flex;
+			align-items: center;
+			gap: 50px;
+			margin-bottom: 28px;
+			background: rgba(255, 255, 255, 0.03);
+			padding: 28px 50px;
+			border-radius: 10px;
+			border: 1px solid #2a2a3a;
+			min-width: 560px;
+			box-sizing: border-box;
+		}
+
+		#result-rank {
+			font-size: 100px;
+			font-weight: 900;
+			font-style: italic;
+			min-width: 120px;
+			text-align: center;
+			line-height: 1;
+		}
+		#result-rank[data-rank="SS"]  { color: #ff6edd; text-shadow: 0 0 25px #ff6edd; }
+		#result-rank[data-rank="S"]   { color: #00f5ff; text-shadow: 0 0 25px #00f5ff; }
+		#result-rank[data-rank="A"]   { color: #ffdd00; text-shadow: 0 0 22px #ffdd00; }
+		#result-rank[data-rank="B"]   { color: #aaffaa; text-shadow: 0 0 18px #aaffaa; }
+		#result-rank[data-rank="C"]   { color: #aaaaff; text-shadow: 0 0 15px #aaaaff; }
+
+		.result-divider {
+			width: 2px;
+			height: 120px;
+			background: linear-gradient(to bottom, transparent, #333, transparent);
+			flex-shrink: 0;
+		}
+
+		.result-score-big {
+			font-size: 44px;
+			font-weight: 900;
+			color: #fff;
+			font-family: monospace;
+			letter-spacing: 2px;
+			text-shadow: 0 0 12px rgba(255,255,255,0.3);
+			margin-bottom: 10px;
+			display: block;
+		}
+
+		.result-notes-row {
+			display: flex;
+			gap: 24px;
+			font-size: 15px;
+			font-family: monospace;
+			margin-top: 4px;
+		}
+		.result-notes-row .rn-item {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 2px;
+		}
+		.result-notes-row .rn-label { font-size: 11px; color: #555; text-transform: uppercase; }
+		.result-notes-row .rn-val { font-size: 22px; font-weight: bold; }
+
+		.result-accuracy-line {
+			font-size: 13px;
+			color: #666;
+			margin-top: 10px;
+			font-family: monospace;
+		}
+		.result-accuracy-line span { color: #aaffaa; font-weight: bold; }
+
+		.result-details {
+			font-size: 20px;
+			text-align: left;
+			line-height: 1.8;
+			font-family: monospace;
+		}
+
+		.result-details span {
+			color: #00d2ff;
+			font-weight: bold;
+		}
+
+		/* 一時停止ダイアログ */
+		#pause-dialog-overlay {
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			background: rgba(0, 0, 0, 0.85);
+			display: none;
+			justify-content: center;
+			align-items: center;
+			z-index: 200;
+		}
+
+		/* ゲームオーバーダイアログ */
+		#gameover-dialog-overlay {
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			background: rgba(0, 0, 0, 0.85);
+			display: none;
+			justify-content: center;
+			align-items: center;
+			z-index: 200;
+		}
+
+		.pause-box {
+			background: #111122;
+			border: 3px solid #00d2ff;
+			border-radius: 12px;
+			padding: 40px;
+			text-align: center;
+			box-shadow: 0 0 25px rgba(0, 210, 255, 0.3);
+		}
+
+		.pause-title {
+			font-size: 26px;
+			font-weight: bold;
+			color: #fff;
+			margin-bottom: 25px;
+		}
+
+		.pause-btn-group {
+			display: flex;
+			flex-direction: column;
+			gap: 16px;
+			align-items: center;
+		}
+
+		.pause-action-btn {
+			width: 320px;
+			padding: 14px 0;
+			font-size: 18px;
+			font-weight: bold;
+			border: none;
+			border-radius: 6px;
+			cursor: pointer;
+			transition: background 0.2s, transform 0.1s;
+		}
+
+		.btn-choice-menu {
+			background: #332255;
+			color: #d17fff;
+			border: 1px solid #d17fff;
+		}
+
+		.btn-choice-retry {
+			background: #00d2ff;
+			color: #000;
+		}
+
+		.btn-choice-resume {
+			background: #444;
+			color: #fff;
+			border: 1px solid #777;
+		}
+
+		.pause-action-btn:hover {
+			transform: scale(1.03);
+			opacity: 0.9;
+		}
+
+		/* プロフィール用UIスタイル */
+		.profile-header-container {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 15px;
+			margin-bottom: 20px;
+		}
+
+		.profile-avatar-circle {
+			width: 90px;
+			height: 90px;
+			border-radius: 50%;
+			border: 2px solid #00d2ff;
+			background: #111 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%2300d2ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>') no-repeat center;
+			background-size: 48px;
+			cursor: pointer;
+			overflow: hidden;
+			box-shadow: 0 0 10px rgba(0, 210, 255, 0.4);
+			transition: transform 0.2s, border-color 0.2s;
+		}
+
+		.profile-avatar-circle:hover {
+			transform: scale(1.05);
+			border-color: #fff;
+		}
+
+		.profile-avatar-img {
+			width: 100%;
+			height: 100%;
+			object-fit: cover;
+		}
+
+		.profile-open-btn {
+			background: #151530;
+			color: #00d2ff;
+			border: 1px solid #00d2ff;
+			padding: 6px 16px;
+			border-radius: 20px;
+			cursor: pointer;
+			font-weight: bold;
+			font-size: 14px;
+			transition: background 0.2s, color 0.2s;
+		}
+
+		.profile-open-btn:hover {
+			background: #00d2ff;
+			color: #000;
+		}
+
+		.profile-modal-overlay {
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100vw;
+			height: 100vh;
+			background: rgba(0, 0, 0, 0.85);
+			z-index: 300;
+			display: none;
+			justify-content: center;
+			align-items: center;
+		}
+
+		.profile-modal-content {
+			background: #0d0d1a;
+			border: none;
+			border-radius: 0;
+			width: 100vw;
+			height: 100vh;
+			max-height: 100vh;
+			padding: 50px 50px 40px;
+			box-sizing: border-box;
+			position: relative;
+			display: flex;
+			flex-direction: column;
+			box-shadow: none;
+		}
+
+		.profile-modal-close {
+			position: absolute;
+			top: 22px;
+			right: 30px;
+			background: transparent;
+			border: 2px solid #ff5555;
+			color: #ff5555;
+			font-size: 22px;
+			font-weight: bold;
+			width: 44px;
+			height: 44px;
+			border-radius: 50%;
+			cursor: pointer;
+			transition: background 0.2s, color 0.2s;
+			z-index: 10;
+		}
+
+		.profile-modal-close:hover {
+			background: #ff5555;
+			color: #fff;
+		}
+
+		.profile-modal-title {
+			font-size: 26px;
+			font-weight: bold;
+			color: #00d2ff;
+			text-align: center;
+			margin-bottom: 30px;
+			text-shadow: 0 0 10px rgba(0, 210, 255, 0.3);
+		}
+
+		.profile-modal-body {
+			display: flex;
+			flex: 1;
+			min-height: 0;
+			gap: 15px;
+			margin-bottom: 15px;
+		}
+
+		.profile-modal-left {
+			flex: 0 0 33.333%;
+			max-width: 33.333%;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			padding-top: 6px;
+			padding-left: 0.7mm;
+			padding-right: 0.7mm;
+			box-sizing: border-box;
+			border-right: 1px solid #222;
+		}
+
+		.profile-modal-left .profile-avatar-circle {
+			width: 100%;
+			aspect-ratio: 1 / 1;
+			height: auto;
+			flex-shrink: 0;
+			background-size: 45%;
+		}
+
+		.profile-modal-right {
+			flex: 0 0 66.667%;
+			max-width: 66.667%;
+			min-width: 0;
+			display: flex;
+			flex-direction: column;
+			box-sizing: border-box;
+			padding-left: 25px;
+		}
+
+		.profile-score-list {
+			background: rgba(0, 0, 0, 0.4);
+			border: 1px solid #333;
+			border-radius: 6px;
+			overflow-y: auto;
+			padding: 10px;
+			box-sizing: border-box;
+			flex: 1;
+			margin-bottom: 15px;
+			text-align: left;
+		}
+
+		.profile-score-item {
+			padding: 8px 12px;
+			margin-bottom: 6px;
+			background: rgba(255, 255, 255, 0.03);
+			border-radius: 4px;
+			font-size: 13px;
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			border-left: 3px solid #00d2ff;
+		}
+
+		.profile-score-section-title {
+			font-size: 12px;
+			font-weight: bold;
+			color: #ff69b4;
+			letter-spacing: 1px;
+			margin: 12px 2px 6px;
+			text-transform: uppercase;
+		}
+
+		.profile-score-section-title:first-child {
+			margin-top: 2px;
+		}
+
+		.profile-score-name {
+			font-weight: bold;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			max-width: 260px;
+		}
+
+		.profile-score-val {
+			font-family: monospace;
+			font-size: 15px;
+			color: #ffea00;
+			text-shadow: 0 0 5px rgba(255, 234, 0, 0.3);
+		}
+
+		/* ===== Online / Profile additions ===== */
+		.hamburger-btn { position:fixed; top:16px; right:18px; z-index:120; width:48px; height:44px; border:1px solid #00d2ff; border-radius:8px; background:rgba(10,10,25,.92); color:#00d2ff; font-size:25px; font-weight:bold; cursor:pointer; box-shadow:0 0 14px rgba(0,210,255,.2); }
+		.hamburger-btn:hover { background:#00d2ff; color:#000; }
+		.online-inline-row { display:flex; align-items:center; gap:10px; width:100%; box-sizing:border-box; padding:8px 0 12px; border-bottom:1px solid #333; margin-bottom:8px; }
+		.online-inline-btn { flex:1; margin:0; padding:10px 14px; font-size:15px; background:#121f45; border:1px solid #00d2ff; color:#00d2ff; box-shadow:0 0 14px rgba(0,210,255,.2); }
+		.online-inline-btn:hover:not(:disabled) { background:#00d2ff; color:#000; }
+		.online-status-text { min-width:145px; text-align:right; font-size:11px; color:#777; line-height:1.25; }
+		.online-modal-overlay, .rate-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.86); z-index:410; display:none; justify-content:center; align-items:center; padding:20px; box-sizing:border-box; }
+		.online-modal-content { width:min(920px,96vw); max-height:92vh; overflow:auto; background:#0d0d1a; border:2px solid #00d2ff; border-radius:14px; padding:24px; box-sizing:border-box; box-shadow:0 0 32px rgba(0,210,255,.22); position:relative; }
+		.online-modal-title { color:#00d2ff; font-size:24px; font-weight:900; text-align:center; margin-bottom:18px; }
+		.online-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+		.online-card { background:rgba(255,255,255,.035); border:1px solid #2f3444; border-radius:10px; padding:16px; box-sizing:border-box; }
+		.online-card-title { color:#ff69b4; font-size:15px; font-weight:bold; margin-bottom:10px; }
+		.online-input-row { display:flex; gap:8px; align-items:center; margin:8px 0; }
+		.online-input-label { width:104px; flex:0 0 auto; font-size:12px; color:#999; }
+		.online-input { flex:1; min-width:0; background:#111; border:1px solid #4a4a5a; color:#fff; border-radius:6px; padding:8px 10px; font-size:13px; box-sizing:border-box; }
+		.online-input:focus { outline:none; border-color:#00d2ff; box-shadow:0 0 0 2px rgba(0,210,255,.12); }
+		.online-code { font-family:monospace; letter-spacing:2px; text-transform:uppercase; }
+		.online-small { font-size:11px; color:#777; line-height:1.45; }
+		.online-status-box { margin-top:12px; padding:10px; background:#090912; border:1px solid #2e2e3d; border-radius:8px; color:#aaa; font-size:12px; min-height:40px; }
+		.online-status-box strong { color:#fff; }
+		.online-join-row { display:flex; gap:8px; margin-top:10px; }
+		.online-action-btn { flex:1; margin:0; padding:10px 14px; font-size:14px; }
+		.online-host-btn { background:#ff1493; }
+		.online-join-btn { background:#00d2ff; color:#000; }
+		.online-close-btn { background:#332255; color:#d17fff; border:1px solid #d17fff; }
+		.online-room-code { font-family:monospace; font-size:27px; font-weight:900; color:#fff; letter-spacing:4px; text-align:center; margin:6px 0; }
+		.online-room-pwd { font-family:monospace; font-size:18px; color:#ffaa00; text-align:center; letter-spacing:2px; }
+		.rate-box { width:min(460px,94vw); background:#0d0d1a; border:2px solid #ffaa00; border-radius:14px; padding:28px; box-sizing:border-box; box-shadow:0 0 28px rgba(255,170,0,.2); text-align:center; }
+		.rate-title { color:#ffaa00; font-size:24px; font-weight:900; }
+		.rate-value { margin:18px 0 4px; font-family:monospace; font-size:56px; font-weight:900; color:#fff; }
+		.rate-sub { color:#777; font-size:12px; }
+		.profile-name-row { width:min(320px,100%); margin:0 auto 18px; }
+		.profile-name-input { width:100%; background:#111; border:2px solid #00d2ff; border-radius:8px; color:#fff; padding:10px 12px; box-sizing:border-box; font-size:16px; text-align:center; }
+		.profile-name-save { width:100%; margin-top:8px; padding:9px; font-size:13px; }
+		#online-opponent-view { display:none; position:absolute; right:0; top:60px; bottom:0; width:50%; box-sizing:border-box; background:rgba(4,5,14,.78); border-left:2px solid #2e3351; z-index:2; overflow:hidden; }
+		#main-play-field.online-match-active #online-opponent-view { display:block; }
+		#main-play-field.online-match-active #play-area { left:25%; width:min(650px,50%); }
+		#main-play-field.online-match-active .key-guide { left:25%; width:min(650px,50%); }
+		#main-play-field.online-match-active #score-display { right:52%; }
+		.online-opponent-header { padding:12px 16px 8px; display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
+		.online-opponent-name { color:#00d2ff; font-size:16px; font-weight:900; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+		.online-opponent-sub { color:#777; font-size:11px; }
+		.online-opponent-score { text-align:right; font-family:monospace; color:#fff; font-size:18px; font-weight:bold; }
+		#online-opponent-canvas { width:100%; height:calc(100% - 86px); display:block; }
+		.online-opponent-footer { position:absolute; left:16px; right:16px; bottom:18px; display:flex; justify-content:space-between; font-family:monospace; font-size:12px; color:#888; }
+		#online-countdown { display:none; position:absolute; inset:60px 0 0; z-index:30; pointer-events:none; align-items:center; justify-content:center; flex-direction:column; background:rgba(3,3,12,.22); }
+		#online-countdown-number { font-size:96px; font-weight:900; color:#00d2ff; text-shadow:0 0 26px rgba(0,210,255,.75); }
+		#online-countdown-text { color:#fff; font-size:16px; letter-spacing:2px; }
+		.online-final-block { display:none; width:min(820px,92vw); margin:18px auto 12px; }
+		.online-final-title { text-align:center; font-size:46px; font-weight:900; letter-spacing:5px; margin-bottom:14px; }
+		.online-final-title.win { color:#00d2ff; text-shadow:0 0 22px rgba(0,210,255,.55); }
+		.online-final-title.lose { color:#ff5555; text-shadow:0 0 22px rgba(255,85,85,.5); }
+		.online-final-title.draw { color:#ffaa00; text-shadow:0 0 22px rgba(255,170,0,.45); }
+		.online-final-cards { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+		.online-final-card { background:rgba(255,255,255,.04); border:1px solid #303041; border-radius:10px; padding:16px; text-align:center; }
+		.online-final-card.self { border-color:#00d2ff; }
+		.online-final-card-name { font-size:15px; color:#aaa; margin-bottom:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+		.online-final-card-score { font-family:monospace; font-size:34px; font-weight:900; color:#fff; }
+		.online-final-meta { color:#777; font-family:monospace; font-size:11px; margin-top:5px; }
+		.online-rate-gain { margin-top:8px; color:#ffaa00; font-family:monospace; font-weight:bold; }
+		.online-final-actions { display:flex; justify-content:center; gap:10px; margin-top:15px; flex-wrap:wrap; }
+		.online-final-wait { color:#aaa; text-align:center; font-size:12px; margin-top:9px; }
+		#result-overlay.online-result-mode #result-title, #result-overlay.online-result-mode #result-music-name, #result-overlay.online-result-mode #result-fc-badge, #result-overlay.online-result-mode .result-stats-container, #result-overlay.online-result-mode #result-editor-block, #result-overlay.online-result-mode #standard-result-actions { display:none !important; }
+
+		@media (max-width:800px) { .online-grid,.online-final-cards{grid-template-columns:1fr;} #main-play-field.online-match-active #play-area{left:0;width:100%;} #main-play-field.online-match-active #score-display{right:20px;} #online-opponent-view{top:auto;left:0;right:0;bottom:0;width:100%;height:29%;border-left:none;border-top:2px solid #2e3351;} #main-play-field.online-match-active .key-guide{left:50%;width:100%;} #online-opponent-canvas{height:calc(100% - 64px);} }
+
+	</style>
+</head>
+
+<body>
+	<div id="game-container">
+		<video id="bg-video-element" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:0;display:none;opacity:0.4;pointer-events:none;" loop muted playsinline></video>
+		<div id="start-overlay" class="menu-overlay">
+			<button id="hamburger-menu-btn" class="hamburger-btn" onclick="openRatePanel()" aria-label="レートメニュー">☰</button>
+			<div style="font-size: 32px; font-weight: bold; color: #00d2ff; margin-bottom: 15px;">Aetheria</div>
+			<div class="profile-header-container">
+					<button class="profile-open-btn" onclick="openProfileModal()">プロフィール</button>
+					<input type="file" id="profile-avatar-input" accept="image/*" style="display:none;" onchange="handleAvatarChange(this)">
+			</div>
+					<div style="margin-bottom: 15px;">
+						<span style="font-weight: bold; color: #aaa; margin-right: 12px; font-size:15px;">KEY MODE:</span>
+						<button id="key-4-btn" class="mode-toggle-btn active" onclick="changeKeyMode(4)">4 KEY (D F J K)</button>
+						<button id="key-6-btn" class="mode-toggle-btn" onclick="changeKeyMode(6)">6 KEY (S D F J K L)</button>
+					</div>
+					<div style="margin-bottom: 15px;">
+						<span style="font-weight: bold; color: #aaa; margin-right: 12px; font-size:15px;">DIFFICULTY:</span>
+						<select id="difficulty-select" onchange="currentDifficulty = this.value;" style="background: #222; color: #fff; border: 1px solid #555; padding: 6px; font-weight: bold; border-radius: 4px; font-size: 14px;">
+					<option value="EASY">EASY</option>
+					<option value="NORMAL" selected>NORMAL</option>
+					<option value="HARD">HARD</option>
+					<option value="EXTRA">EXTRA</option>
+				</select>
+					</div>
+					<div class="file-input-container">
+						<label class="file-input-label" for="audio-file">
+					📁 オーディオ / MP4ファイルを選択（複数登録可能）
+				</label>
+						<input type="file" id="audio-file" accept="audio/*,video/mp4,video/*" multiple>
+						<button id="music-info-btn" onclick="openMusicSelectModal()">曲名: 未選択</button>
+					</div>
+					<div style="margin-top: 10px; display: flex; justify-content: center; gap: 15px;">
+						<button id="btn-play-start" class="menu-btn" onclick="startPlayMode()" disabled>PLAY START</button>
+						<button id="btn-editor-start" class="menu-btn editor-btn" onclick="startEditorMode()" disabled>EDIT CHART</button>
+					</div>
+					<div class="setting-panel">
+						<div class="online-inline-row">
+							<button id="online-open-btn" class="menu-btn online-inline-btn" onclick="openOnlineModal()">🌐 ONLINE</button>
+							<div id="online-status-text" class="online-status-text">オフライン</div>
+						</div>
+						<div class="setting-row">
+							<label>ハイスピード (Speed)</label>
+							<input type="range" id="slider-speed" class="setting-slider" min="1.0" max="15.0" step="0.1" value="3.8" oninput="updateSettingsFromUI()">
+							<span id="display-speed-val" class="setting-val-display">3.8x</span>
+						</div>
+							<div class="setting-row">
+								<label>音楽音量 (Volume)</label>
+								<input type="range" id="slider-volume" class="setting-slider" min="0" max="1" step="0.01" value="0.8" oninput="updateSettingsFromUI()">
+								<span id="display-volume-val" class="setting-val-display">80%</span>
+							</div>
+							<div class="setting-row">
+								<label>効果音音量 (SE Volume)</label>
+								<input type="range" id="slider-se-volume" class="setting-slider" min="0" max="1" step="0.01" value="0.24" oninput="updateSettingsFromUI()">
+								<span id="display-se-volume-val" class="setting-val-display">24%</span>
+							</div>
+						<div class="setting-row" style="border-top:1px solid #333; margin-top:8px; padding-top:10px;">
+							<label style="color:#00d2ff;">🎬 MP4背景動画</label>
+							<label style="display:flex; align-items:center; gap:6px; color:#ccc; font-size:13px; cursor:pointer;">
+								<input type="checkbox" id="bg-video-enabled" onchange="toggleBgVideo()" style="cursor:pointer; accent-color:#ff1493; width:16px; height:16px;">
+								背景に表示する
+							</label>
+							<div id="bg-video-name" style="font-size:12px; color:#888;">未選択</div>
+						</div>
+					</div>
+					<div class="password-section">
+						<div style="font-weight: bold; color: #00d2ff; font-size: 14px; margin-bottom: 6px; text-align: left;">
+							📂 譜面ファイル(.json)を読み込む</div>
+						<div style="display:flex; gap:10px; justify-content:center; align-items:center;">
+							<input type="file" id="chart-file-input" accept=".json,application/json" style="display:none;" onchange="loadChartFromFile(event)">
+							<button class="menu-btn secondary-btn" style="padding: 6px 20px; font-size:14px; margin:0;" onclick="document.getElementById('chart-file-input').click()">ファイルを選択</button>
+							<span id="chart-file-name" style="font-size:12px; color:#888;">未選択</span>
+						</div>
+						<div id="pwd-error-msg"
+							style="color: #ff5555; font-size: 12px; margin-top: 5px; font-weight: bold;"></div>
+					</div>
+					<div class="manage-panel">
+						<div
+							style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #333; padding-bottom:4px; margin-bottom:6px;">
+							<div style="font-weight: bold; color: #d17fff; font-size: 14px; text-align: left; flex:1;">
+								保存された自作譜面リスト</div>
+							<div>
+								<button id="btn-toggle-batch" class="small-del-btn" style="background:#444;" onclick="toggleBatchDeleteMode()">一括削除</button>
+								<button id="btn-exec-batch" class="small-del-btn" style="display:none;" onclick="executeBatchDelete()">選択削除を実行</button>
+							</div>
+						</div>
+						<div class="chart-manage-list" id="chart-manage-field">
+							<div style="color:#666; text-align:center; padding:10px; font-size:13px;">保存された自作譜面はありません
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="music-select-modal-overlay" id="music-select-modal-layer" onclick="closeMusicSelectModal()">
+					<div class="music-select-modal-content" onclick="event.stopPropagation()">
+						<button class="music-select-modal-close" onclick="closeMusicSelectModal()">✕</button>
+						<div
+							style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+							<div class="music-select-modal-title">🎵 登録楽曲プレイリスト</div>
+							<div class="music-modal-header-actions">
+								<button id="btn-track-toggle-batch" class="small-del-btn" style="background:#444;" onclick="toggleTrackBatchDeleteMode()">一括削除</button>
+								<button id="btn-track-exec-batch" class="small-del-btn" style="display:none; background:#ff5555;" onclick="executeTrackBatchDelete()">選択削除</button>
+							</div>
+						</div>
+						<div class="music-select-container" id="music-list-field">
+							<div style="color:#666; padding:10px; text-align:center; font-size:13px;">楽曲が登録されていません</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="profile-modal-overlay" id="profile-modal-layer" onclick="closeProfileModal()">
+					<div class="profile-modal-content" onclick="event.stopPropagation()">
+						<div class="profile-modal-title">プロフィール</div>
+						<div class="profile-modal-body">
+							<div class="profile-modal-left">
+								<div class="profile-name-row">
+									<input id="profile-name-input" class="profile-name-input" maxlength="16" placeholder="プレイヤー名">
+									<button class="menu-btn secondary-btn profile-name-save" onclick="saveProfileName()">名前を保存</button>
+								</div>
+								<div class="profile-avatar-circle" id="profile-avatar-trigger-modal" onclick="triggerAvatarUpload()"
+									title="画像ファイルを選択してアイコンを変更">
+									<img id="profile-avatar-img-modal" class="profile-avatar-img" style="display:none;">
+								</div>
+							</div>
+							<div class="profile-modal-right">
+								<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+									<div style="font-size:14px; color:#aaa; font-weight:bold;">🏆 各楽曲の最高スコア：</div>
+									<button id="btn-clear-all-scores" class="small-del-btn" style="background:#aa2222; font-size:12px; display:none;" onclick="clearAllHighScores()">全スコア削除</button>
+								</div>
+								<div class="profile-score-list" id="profile-score-field">
+									<div style="color:#666; text-align:center; padding:10px; font-size:13px;">まだプレイ記録がありません。
+									</div>
+								</div>
+							</div>
+						</div>
+						<button class="menu-btn secondary-btn" style="margin: 0 auto; width:120px; font-size:14px; padding:8px 0;" onclick="closeProfileModal()">閉じる</button>
+					</div>
+				</div>
+
+				<div id="rate-panel-layer" class="rate-modal-overlay" onclick="closeRatePanel()"><div class="rate-box" onclick="event.stopPropagation()"><div class="rate-title">🏆 ONLINE RATE</div><div id="rate-value-main" class="rate-value">0 / 5000</div><div class="rate-sub">最大 5000 / 勝利 +10 / 敗北で減少なし</div><button class="menu-btn secondary-btn" style="margin-top:18px;width:120px;" onclick="closeRatePanel()">閉じる</button></div></div>
+				<div id="online-modal-layer" class="online-modal-overlay" onclick="closeOnlineModal()"><div class="online-modal-content" onclick="event.stopPropagation()"><button class="music-select-modal-close" onclick="closeOnlineModal()">✕</button><div class="online-modal-title">🌐 ONLINE MATCH</div><div class="online-grid"><div class="online-card"><div class="online-card-title">募集</div><div class="online-small">現在の曲「<span id="online-host-track">未選択</span>」を候補にします。AIが2人の曲からランダムに1曲選びます。</div><div class="online-input-row"><span class="online-input-label">パスワード</span><input id="online-host-password" class="online-input online-code" maxlength="12" placeholder="4～12文字"></div><button class="menu-btn online-action-btn online-host-btn" onclick="createOnlineRoom()">募集を開始</button><div id="online-host-room" class="online-status-box" style="display:none;"></div></div><div class="online-card"><div class="online-card-title">参加（パスワード）</div><div class="online-input-row"><span class="online-input-label">部屋コード</span><input id="online-join-code" class="online-input online-code" maxlength="8" placeholder="6文字"></div><div class="online-input-row"><span class="online-input-label">パスワード</span><input id="online-join-password" class="online-input online-code" maxlength="12" placeholder="募集側のパスワード"></div><div class="online-small">自分の曲「<span id="online-join-track">未選択</span>」も候補に使用。難易度は別々に設定できます。</div><button class="menu-btn online-action-btn online-join-btn" onclick="joinOnlineRoom()">参加する</button></div></div><div class="online-card" style="margin-top:14px;"><div class="online-card-title">GitHub 接続設定</div><div class="online-input-row"><span class="online-input-label">Owner</span><input id="github-owner" class="online-input" placeholder="GitHubユーザー名 / Organization"></div><div class="online-input-row"><span class="online-input-label">Repository</span><input id="github-repo" class="online-input" placeholder="データ用リポジトリ"></div><div class="online-input-row"><span class="online-input-label">Branch</span><input id="github-branch" class="online-input" placeholder="main" value="main"></div><div class="online-input-row"><span class="online-input-label">Token</span><input id="github-token" class="online-input" type="password" autocomplete="off" placeholder="Contents: Read/Write token"></div><div style="display:flex;gap:8px;justify-content:center;margin-top:8px;flex-wrap:wrap;"><button class="menu-btn secondary-btn" style="margin:0;padding:8px 14px;font-size:12px;" onclick="saveGitHubConfigFromUI()">設定を保存</button><button class="menu-btn secondary-btn" style="margin:0;padding:8px 14px;font-size:12px;" onclick="testGitHubConnection()">接続テスト</button></div><div id="github-status" class="online-status-box">未設定</div></div><div id="online-modal-status" class="online-status-box">対戦状態: オフライン</div><div class="online-join-row"><button class="menu-btn online-action-btn online-close-btn" onclick="closeOnlineModal()">閉じる</button></div></div></div>
+				<div id="main-play-field">
+					<div class="top-bar">
+						<div id="top-bar-music-title" style="font-weight: bold; color: #ff1493; font-size: 16px;">Music:
+							...</div>
+					<div style="display: flex; gap: 15px; font-size:14px; color:#aaa;">
+						<span id="top-bar-speed-indicator">(Speed: 3.8x)</span>
+						<span id="top-bar-offset-indicator">(Offset: 0ms)</span>
+					</div>
+					<div style="display: flex; gap: 8px;">
+						<button id="auto-btn" class="mode-toggle-btn" onclick="toggleAutoMode()" style="background:#2a1a4a; color:#fff;">AUTO: OFF</button>
+						<button id="pause-btn" class="small-del-btn" style="background:#555; padding: 6px 14px;" onclick="openPauseDialog()">PAUSE</button>
+					</div>
+					</div>
+					<div id="editor-status-indicator">● REC MODE (エディット中)</div>
+					<div id="play-area">
+						<div id="health-bar-container">
+							<div id="health-bar-fill"></div>
+						</div>
+					</div>
+					<div id="online-opponent-view">
+						<div class="online-opponent-header">
+							<div style="min-width:0;"><div id="online-opponent-name" class="online-opponent-name">相手</div><div id="online-opponent-sub" class="online-opponent-sub">待機中</div></div>
+							<div id="online-opponent-score" class="online-opponent-score">00000000</div>
+						</div>
+						<canvas id="online-opponent-canvas"></canvas>
+						<div class="online-opponent-footer"><span id="online-opponent-combo">COMBO 0</span><span id="online-opponent-accuracy">ACC 100.00%</span></div>
+					</div>
+					<div id="online-countdown"><div id="online-countdown-number">3</div><div id="online-countdown-text">MATCH START</div></div>
+					<div id="fg-ui-layer">
+						<div id="score-display">00000000</div>
+						<div id="combo-container">
+							<div id="combo-count">0</div>
+							<div style="font-size: 18px; letter-spacing: 2px; font-weight: bold; color: #fff;">COMBO
+							</div>
+						</div>
+						<div id="judge-rating">PERFECT</div>
+					</div>
+					<div class="key-guide" id="key-guide-field"></div>
+				</div>
+
+				<div id="result-overlay">
+					<div id="result-title">STAGE CLEAR</div>
+					<div id="result-music-name">Music Name</div>
+					<div id="result-fc-badge"></div>
+					<div class="result-stats-container">
+						<div id="result-rank" data-rank="S">S</div>
+						<div class="result-divider"></div>
+						<div class="result-details">
+							<span class="result-score-big" id="res-score">00000000</span>
+							<div class="result-notes-row">
+								<div class="rn-item">
+									<span class="rn-label">Perfect</span>
+									<span class="rn-val" id="res-perfect" style="color:#00ffff;">0</span>
+								</div>
+								<div class="rn-item">
+									<span class="rn-label">Great</span>
+									<span class="rn-val" id="res-great" style="color:#ffaa00;">0</span>
+								</div>
+								<div class="rn-item">
+									<span class="rn-label">Miss</span>
+									<span class="rn-val" id="res-miss" style="color:#ff5555;">0</span>
+								</div>
+								<div class="rn-item" style="margin-left:8px; padding-left:16px; border-left:1px solid #333;">
+									<span class="rn-label">Max Combo</span>
+									<span class="rn-val" id="res-combo" style="color:#ff1493;">0</span>
+								</div>
+							</div>
+							<div class="result-accuracy-line">ACCURACY: <span id="res-accuracy">100.00%</span></div>
+						</div>
+					</div>
+					<div id="online-final-block" class="online-final-block">
+						<div id="online-final-title" class="online-final-title">ONLINE RESULT</div>
+						<div class="online-final-cards">
+							<div id="online-final-self" class="online-final-card self"><div id="online-final-self-name" class="online-final-card-name">YOU</div><div id="online-final-self-score" class="online-final-card-score">00000000</div><div id="online-final-self-meta" class="online-final-meta">ACC 100.00% / MAX COMBO 0</div><div id="online-final-self-rate" class="online-rate-gain">RATE +0</div></div>
+							<div id="online-final-opponent" class="online-final-card"><div id="online-final-opponent-name" class="online-final-card-name">OPPONENT</div><div id="online-final-opponent-score" class="online-final-card-score">00000000</div><div id="online-final-opponent-meta" class="online-final-meta">ACC 100.00% / MAX COMBO 0</div></div>
+						</div>
+						<div id="online-final-wait" class="online-final-wait">二人とも終了するまで最終結果は表示されません。</div>
+						<div class="online-final-actions"><button id="online-rematch-btn" class="menu-btn" onclick="requestOnlineRematch()">再戦</button><button class="menu-btn secondary-btn" onclick="leaveOnlineMatch()">オンラインを終了</button></div>
+					</div>
+					<div id="result-editor-block"
+						style="display:none; margin-bottom: 20px; background:rgba(255,170,0,0.06); padding:15px; border-radius:8px; border:1px solid #ffaa00; width:560px; box-sizing:border-box;">
+						<div style="font-weight:bold; color:#ffaa00; font-size:15px; margin-bottom:8px;">🛠️ 自作譜面データが生成されました！</div>
+						<div style="font-size:13px; color:#ccc; margin-bottom:12px; line-height:1.4;">
+							この譜面はブラウザに自動保存されました。以下の6桁コードで他プレイヤーに配布できます。
+						</div>
+						<div style="display:flex; justify-content:center; align-items:center; gap:12px;">
+							<span style="font-size:14px; color:#aaa;">シェア用パスワード:</span>
+							<span id="result-pwd-output" class="chart-code-disp" style="font-size:20px; padding:4px 15px;" onclick="copyResultPasswordText()">------</span>
+						</div>
+						<div style="margin-top:14px; text-align:center;">
+							<button class="menu-btn secondary-btn" style="padding: 6px 20px; font-size:14px; margin:0;" onclick="downloadChartFile()">💾 譜面ファイルをダウンロード (.json)</button>
+						</div>
+					</div>
+					<div id="standard-result-actions" style="display:flex; gap:12px; flex-wrap:wrap; justify-content:center;">
+						<button class="menu-btn" onclick="backToMenu()">BACK TO MENU</button>
+						<button class="menu-btn secondary-btn" id="btn-save-mp4" style="display:none;" onclick="saveRecordingAsMp4()">🎬 録音をダウンロード (.webm)</button>
+					</div>
+				</div>
+
+				<div id="pause-dialog-overlay">
+					<div class="pause-box">
+						<div class="pause-title">PAUSED (一時停止)</div>
+						<div class="pause-btn-group">
+							<button class="pause-action-btn btn-choice-resume" onclick="closePauseDialog()">ゲームに復帰する</button>
+							<button class="pause-action-btn btn-choice-retry" onclick="retryGameFromPause()">最初からやり直す</button>
+							<button class="pause-action-btn btn-choice-menu" onclick="exitToMenuFromPause()">メニューに戻る</button>
+						</div>
+					</div>
+				</div>
+
+				<div id="gameover-dialog-overlay">
+					<div class="pause-box" style="border-color:#ff3b3b; box-shadow:0 0 25px rgba(255,59,59,0.3)">
+						<div class="pause-title"
+							style="color:#ff3b3b; font-size:32px; text-shadow:0 0 10px rgba(255,59,59,0.5)">GAME OVER
+						</div>
+						<div class="pause-btn-group">
+							<button class="pause-action-btn btn-choice-retry" style="background:#ff3b3b; color:#fff;" onclick="retryGameFromGameOver()">リトライ</button>
+							<button class="pause-action-btn btn-choice-menu" onclick="exitToMenuFromGameOver()">メニューに戻る</button>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<script>
+				// .mp3を取り除く補助関数
+		function removeMp3Extension(filename) {
+			if (!filename) return "";
+			return filename.replace(/\.mp3$/i, '');
+		}
+
+		let audioContext = null;
+		let audioBuffer = null;
+		let audioSource = null;
+		let analyser = null;
+		let masterGainNode = null;
+			let masterVolume = 0.8;
+			let seVolume = 0.24;
+		let dataArray = null;
+		let isRunning = false;
+		let isPaused = false;
+			let isEditMode = false;
+			let isAutoMode = false;
+			let gameStartTime = 0;
+		let pauseStartTime = 0;
+		let totalPausedDuration = 0;
+		let animationFrameId = null;
+		let selectedFileId = null;
+		let selectedFileName = "";
+		let currentKeyMode = 4;
+		let keyConfig = { 'd': 0, 'f': 1, 'j': 2, 'k': 3 };
+		let keyLabels = ['D', 'F', 'J', 'K'];
+		let speedMultiplier = 3.8;
+		let velocity = 0.12 * 3.8;
+		let currentSoflanScale = 1.0;
+		let targetSoflanScale = 1.0;
+		let lastLoopTime = 0;
+			let ySpawn = 60;
+			let yTarget = null; // 動的に計算される
+			let judgeLineBottom = 120; // CSS内のbottom値（px）
+			let noteHeight = 30; // ノーツの高さ（px）
+			let strictWindow = 130; // 判定時間幅（ミリ秒）
+		let liveNotes = [];
+		let notePoolNormal = []; // 再利用用ノーツDOM要素プール（生成/破棄コスト削減）
+		let notePoolLong = [];
+		let laneElements = []; // レーンDOM要素のキャッシュ（毎フレームのgetElementById呼び出しを削減して負荷軽減）
+		let elScoreDisplay = null, elComboContainer = null, elComboCount = null, elHealthBarFill = null, elJudgeRating = null; // 高頻度に参照するUI要素のキャッシュ
+		let activeLongNoteSpawns = {};
+		let laneReleaseTimes = {};
+		let customCreatedChart = [];
+		let currentScore = 0;
+		const MAX_SCORE = 10000000; // リザルトの満点（パーフェクトプレイでちょうどこの値になる）
+		const GREAT_RATIO = 0.55;   // GREAT判定の獲得割合（PERFECTを1とした場合）
+		let totalNoteCount = 0;     // 譜面の総ノーツ数（開始時に確定）
+		let scoreUnitValue = 0;     // ノーツ1個あたりの満点配分（= MAX_SCORE / totalNoteCount）
+		let currentCombo = 0;
+		let maxCombo = 0;
+		let countPerfect = 0;
+		let countGreat = 0;
+		let countMiss = 0;
+			const maxHealth = 30;
+			let currentHealth = 30;
+			const MISS_HEALTH_PENALTY = 2;
+			const COMBO_HEAL_INTERVAL = 10; // この数だけノーツを連続で取ると体力が1回復
+		let isBatchDeleteMode = false;
+		let isTrackBatchDeleteMode = false;
+		let decodedAudioCache = {}; // 一度デコードした曲はここに保存し、再選択時は即座に切り替えられるようにする
+		let db = null;
+		const DB_NAME = "IngMusicStoreDB";
+		const DB_VERSION = 1;
+		window.originalChartBackup = null;
+
+		// 録画関連
+		let mediaRecorder = null;
+		let recordedChunks = [];
+		let isRecording = false;
+
+		// 背景動画関連
+		let bgVideoObjectUrl = null;
+		let bgVideoEnabled = false;
+
+		// シード付き乱数生成器
+		let _seedRand = null;
+		function seededRandom() {
+			if (!_seedRand) return Math.random();
+			let x = Math.sin(_seedRand++) * 10000;
+			return x - Math.floor(x);
+		}
+		function initSeededRandom(seed) {
+			let hash = 0;
+			for (let i = 0; i < seed.length; i++) {
+				hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+				hash |= 0;
+			}
+			_seedRand = Math.abs(hash) + 1;
+		}
+
+		const DIFFICULTY_SETTINGS = {
+			EASY: { spawnInterval: 400, longNoteChance: 0.07, trillChance: 0.22, sofLanChance: 0.0, doubleChance: 0.0, tripleChance: 0.0 },
+			NORMAL: { spawnInterval: 250, longNoteChance: 0.12, trillChance: 0.44, sofLanChance: 0.0, doubleChance: 0.0, tripleChance: 0.0 },
+			HARD: { spawnInterval: 190, longNoteChance: 0.14, trillChance: 0.67, sofLanChance: 0.0, doubleChance: 0.26, tripleChance: 0.0 },
+			EXTRA: { spawnInterval: 45, longNoteChance: 0.14, trillChance: 0.99, sofLanChance: 0.08, doubleChance: 0.30, tripleChance: 0.14 }
+		};
+		let currentDifficulty = "NORMAL";
+
+		// ===== ONLINE: GitHub signaling + WebRTC low-latency game sync =====
+		const ONLINE_RATE_MAX=5000, ONLINE_DEFAULT_RATE=0, ONLINE_PROTOCOL_VERSION=2, ONLINE_POLL_MS=1200, ONLINE_STATE_SEND_MS=80;
+		let profileName=localStorage.getItem("ING_PROFILE_NAME")||"Player";
+		let onlineRate=Math.max(0,Math.min(ONLINE_RATE_MAX,parseInt(localStorage.getItem("ING_ONLINE_RATE")||ONLINE_DEFAULT_RATE,10)||0));
+		let onlinePlayerId=localStorage.getItem("ING_ONLINE_PLAYER_ID");
+		if(!onlinePlayerId) onlinePlayerId=(crypto.randomUUID?crypto.randomUUID():"p_"+Date.now().toString(36)+Math.random().toString(36).slice(2));
+		localStorage.setItem("ING_ONLINE_PLAYER_ID",onlinePlayerId);
+		let onlineGitHubConfig={};
+		let onlineState={active:false,role:null,roomCode:"",roomPassword:"",room:null,pc:null,dc:null,signalingStarted:false,pollTimer:null,pollBusy:false,connected:false,sharedAudioReady:false,localAudioReady:false,remoteAudioReady:false,sharedTrackName:"",selectedOwner:null,selectedTrackKey:"",sharedAudioBytes:null,localOriginalSelection:null,localResult:null,remoteResult:null,localFinished:false,remoteFinished:false,rematchSelf:false,rematchRemote:false,matchRound:0,currentMatchId:"",resultShown:false,rateAwarded:false,remoteSongMs:0,remoteScore:0,remoteCombo:0,remoteAccuracy:100,remoteMaxCombo:0,remoteJudgement:"",lastStateSentAt:0,remoteDifficulty:"NORMAL",remoteKeyMode:4,remoteSpeed:3.8,remoteName:"相手",opponentChart:null,opponentChartGenerated:false,incomingAudio:null,pendingStartEpoch:null,matchPreparing:false,clockOffsetMs:0,clockSyncSentAt:0};
+
+
+		window.addEventListener('DOMContentLoaded', () => {
+			initIndexedDB();
+			setupLanesUI();
+			updateSettingsFromUI();
+			cacheFrequentGameplayElements();
+
+			document.getElementById('audio-file').addEventListener('change', handleAudioFileSelect);
+
+			window.addEventListener('keydown', handleGlobalKeyDown);
+			window.addEventListener('keyup', handleGlobalKeyUp);
+
+			loadAvatarFromLocalStorage();
+			loadProfileName();
+			loadGitHubConfigToUI();
+			refreshOnlineUi();
+		});
+
+		function initIndexedDB() {
+			const request = indexedDB.open(DB_NAME, DB_VERSION);
+			request.onupgradeneeded = function (e) {
+				const database = e.target.result;
+				if (!database.objectStoreNames.contains("tracks")) {
+					database.createObjectStore("tracks", { keyPath: "id", autoIncrement: true });
+				}
+			};
+			request.onsuccess = function (e) {
+				db = e.target.result;
+				loadMusicListFromDB();
+			};
+		}
+
+		function triggerAvatarUpload() {
+			document.getElementById('profile-avatar-input').click();
+		}
+
+		function handleAvatarChange(input) {
+			if (input.files && input.files[0]) {
+				const file = input.files[0];
+				const objectUrl = URL.createObjectURL(file);
+				const img = new Image();
+				img.onload = function () {
+					try {
+						// 中央を正方形にクロップして、軽量かつプロフィール画面でも
+						// くっきり表示できる解像度（360px）にリサイズ
+						const TARGET = 360;
+						const side = Math.min(img.naturalWidth, img.naturalHeight);
+						const sx = (img.naturalWidth - side) / 2;
+						const sy = (img.naturalHeight - side) / 2;
+
+						const canvas = document.createElement('canvas');
+						canvas.width = TARGET;
+						canvas.height = TARGET;
+						const ctx = canvas.getContext('2d');
+						ctx.imageSmoothingEnabled = true;
+						ctx.imageSmoothingQuality = 'high';
+						ctx.fillStyle = '#111122';
+						ctx.fillRect(0, 0, TARGET, TARGET);
+						ctx.drawImage(img, sx, sy, side, side, 0, 0, TARGET, TARGET);
+
+						const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+						localStorage.setItem("ING_USER_AVATAR_BASE64", dataUrl);
+						applyAvatarData(dataUrl);
+					} catch (err) {
+						alert("画像の処理に失敗しました。別の画像をお試しください。");
+					} finally {
+						URL.revokeObjectURL(objectUrl);
+					}
+				};
+				img.onerror = function () {
+					alert("画像の読み込みに失敗しました。別の画像をお試しください。");
+					URL.revokeObjectURL(objectUrl);
+				};
+				img.src = objectUrl;
+			}
+		}
+
+		function loadAvatarFromLocalStorage() {
+			const saved = localStorage.getItem("ING_USER_AVATAR_BASE64");
+			if (saved) {
+				applyAvatarData(saved);
+			}
+		}
+
+		function applyAvatarData(dataUrl) {
+			const imgModal = document.getElementById("profile-avatar-img-modal");
+			if (imgModal) { imgModal.src = dataUrl; imgModal.style.display = "block"; }
+		}
+
+		function openProfileModal() {
+			loadProfileName();
+			renderProfileHighScoreList();
+			document.getElementById("profile-modal-layer").style.display = "flex";
+		}
+
+		function closeProfileModal() {
+			document.getElementById("profile-modal-layer").style.display = "none";
+		}
+
+		function openMusicSelectModal() {
+			loadMusicListFromDB();
+			document.getElementById("music-select-modal-layer").style.display = "flex";
+		}
+
+		function closeMusicSelectModal() {
+			document.getElementById("music-select-modal-layer").style.display = "none";
+		}
+
+		function changeKeyMode(mode) {
+			if (isRunning) return;
+			currentKeyMode = mode;
+			document.getElementById('key-4-btn').classList.toggle('active', mode === 4);
+			document.getElementById('key-6-btn').classList.toggle('active', mode === 6);
+			if (mode === 4) {
+				keyConfig = { 'd': 0, 'f': 1, 'j': 2, 'k': 3 };
+				keyLabels = ['D', 'F', 'J', 'K'];
+			} else {
+				keyConfig = { 's': 0, 'd': 1, 'f': 2, 'j': 3, 'k': 4, 'l': 5 };
+				keyLabels = ['S', 'D', 'F', 'J', 'K', 'L'];
+			}
+			setupLanesUI();
+		}
+
+		function cacheFrequentGameplayElements() {
+			// 高頻度に参照するUI要素を一度だけ取得してキャッシュしておく（DOM検索コストの削減）
+			elScoreDisplay = document.getElementById('score-display');
+			elComboContainer = document.getElementById('combo-container');
+			elComboCount = document.getElementById('combo-count');
+			elHealthBarFill = document.getElementById('health-bar-fill');
+			elJudgeRating = document.getElementById('judge-rating');
+		}
+
+		function setupLanesUI() {
+			const playArea = document.getElementById('play-area');
+			if (!playArea) return;
+			const existingLanes = playArea.querySelectorAll('.lane');
+			existingLanes.forEach(el => el.remove());
+
+			laneElements = []; // レーン構成が変わるためDOM要素キャッシュを再構築
+			for (let i = 0; i < currentKeyMode; i++) {
+				const lane = document.createElement('div');
+				lane.className = 'lane';
+				lane.id = `lane-${i}`;
+				const light = document.createElement('div');
+				light.className = 'lane-light';
+				const target = document.createElement('div');
+				target.className = 'lane-target';
+				lane.appendChild(light);
+				lane.appendChild(target);
+				playArea.appendChild(lane);
+				laneElements[i] = lane;
+			}
+			adjustTargetLinePosition();
+
+			const guideField = document.getElementById('key-guide-field');
+			guideField.innerHTML = "";
+			for (let i = 0; i < currentKeyMode; i++) {
+				const box = document.createElement('div');
+				box.className = 'key-box';
+				box.textContent = keyLabels[i];
+				guideField.appendChild(box);
+			}
+		}
+
+		function calculateYTarget() {
+			// play-areaの高さを取得
+			const playArea = document.getElementById('play-area');
+			if (!playArea) return 500; // フォールバック
+			const playAreaHeight = playArea.clientHeight;
+			// 判定ラインの位置 = 下からjudgeLineBottomを引いた位置
+			// ノーツの上边が判定ラインの中心に来るように計算
+			const judgeLineCenterY = playAreaHeight - judgeLineBottom - 3; // 判定ライン(6px)の中心
+			const targetY = judgeLineCenterY - (noteHeight / 2);
+			return targetY;
+		}
+
+		function adjustTargetLinePosition() {
+			// yTargetを再計算
+			yTarget = calculateYTarget();
+		}
+
+		window.addEventListener('resize', () => {
+			if (!isRunning) adjustTargetLinePosition();
+		});
+
+		function updateSettingsFromUI() {
+			const speedInput = parseFloat(document.getElementById('slider-speed').value);
+			document.getElementById('display-speed-val').textContent = speedInput.toFixed(1) + "x";
+			document.getElementById('top-bar-speed-indicator').textContent = "(Speed: " + speedInput.toFixed(1) + "x)";
+			speedMultiplier = speedInput;
+			velocity = 0.12 * speedMultiplier;
+
+			const volInput = parseFloat(document.getElementById('slider-volume').value);
+			document.getElementById('display-volume-val').textContent = Math.round(volInput * 100) + '%';
+				masterVolume = volInput;
+				if (masterGainNode) masterGainNode.gain.value = masterVolume;
+
+				const seVolInput = parseFloat(document.getElementById('slider-se-volume').value);
+				document.getElementById('display-se-volume-val').textContent = Math.round(seVolInput * 100) + '%';
+				seVolume = seVolInput;
+			}
+
+		function handleAudioFileSelect(e) {
+			const files = e.target.files;
+			if (!files || files.length === 0) return;
+			if (!db) return;
+
+			let loadedCount = 0;
+			for (let i = 0; i < files.length; i++) {
+				const f = files[i];
+				const isVideo = f.type.startsWith('video/');
+				const reader = new FileReader();
+				reader.onload = function (event) {
+					const arrayBuffer = event.target.result;
+					const transaction = db.transaction(["tracks"], "readwrite");
+					const store = transaction.objectStore("tracks");
+					const newTrack = { name: f.name, data: arrayBuffer, isVideo: isVideo };
+					store.add(newTrack);
+
+					transaction.oncomplete = function () {
+						loadedCount++;
+						if (loadedCount === files.length) {
+							loadMusicListFromDB();
+						}
+					};
+				};
+				reader.readAsArrayBuffer(f);
+			}
+		}
+
+		function deleteTrackFromDB(id, event) {
+			if (event) event.stopPropagation();
+			if (!db) return;
+
+			// リストから即座に消し、削除待ちのもたつきを感じさせない
+			const itemEl = document.getElementById(`track-item-${id}`);
+			if (itemEl) itemEl.remove();
+			delete decodedAudioCache[id];
+
+			const transaction = db.transaction(["tracks"], "readwrite");
+			const store = transaction.objectStore("tracks");
+			store.delete(id);
+
+			if (selectedFileId === id) {
+				selectedFileId = null;
+				selectedFileName = "";
+				audioBuffer = null;
+				document.getElementById('music-info-btn').textContent = "曲名: 未選択";
+				document.getElementById('btn-play-start').disabled = true;
+				document.getElementById('btn-editor-start').disabled = true;
+			}
+			transaction.oncomplete = function () {
+				loadMusicListFromDB();
+			};
+		}
+
+		function loadMusicListFromDB() {
+			if (!db) return;
+			const transaction = db.transaction(["tracks"], "readonly");
+			const store = transaction.objectStore("tracks");
+			const request = store.getAll();
+
+			request.onsuccess = function (e) {
+				const tracks = e.target.result;
+				const listField = document.getElementById("music-list-field");
+				listField.innerHTML = "";
+				const toggleBtn = document.getElementById("btn-track-toggle-batch");
+				const execBtn = document.getElementById("btn-track-exec-batch");
+
+				if (tracks.length === 0) {
+					listField.innerHTML = `<div style="color:#666; padding:10px; text-align:center; font-size:13px;">楽曲が登録されていません</div>`;
+					toggleBtn.style.display = "none";
+					execBtn.style.display = "none";
+					return;
+				}
+				toggleBtn.style.display = "inline-block";
+
+				if (isTrackBatchDeleteMode) {
+					toggleBtn.textContent = "キャンセル";
+					toggleBtn.style.background = "#555";
+					execBtn.style.display = "inline-block";
+				} else {
+					toggleBtn.textContent = "一括削除";
+					toggleBtn.style.background = "#444";
+					execBtn.style.display = "none";
+				}
+
+				tracks.forEach(track => {
+					const item = document.createElement("div");
+					item.className = "music-item";
+					item.id = `track-item-${track.id}`;
+					if (selectedFileId === track.id) item.classList.add('selected');
+					item.onclick = function () {
+						selectTrack(track.id, track.name, track.data, track.isVideo);
+					};
+
+					let checkHtml = isTrackBatchDeleteMode ? `<input type="checkbox" class="track-batch-check" value="${track.id}" onclick="event.stopPropagation()">` : "";
+					let deleteBtnHtml = isTrackBatchDeleteMode ? "" : `<button class="small-del-btn" onclick="deleteTrackFromDB(${track.id}, event)">削除</button>`;
+
+					const cleanName = removeMp3Extension(track.name);
+					const trkLabel = track.isVideo
+						? `<span style="color:#ffaa00; font-weight:bold; font-family:monospace; margin-right:4px;">[MP4]</span>`
+						: `<span style="color:#ff1493; font-weight:bold; font-family:monospace; margin-right:4px;">[TRK]</span>`;
+					item.innerHTML = `
+						<div style="display:flex; align-items:center; overflow:hidden; flex:1;">
+							${checkHtml}
+								${trkLabel}
+							<span class="music-item-name">${cleanName}</span>
+						</div>
+						${deleteBtnHtml}
+					`;
+					listField.appendChild(item);
+				});
+				renderChartManageList();
+			};
+		}
+
+		function toggleTrackBatchDeleteMode() {
+			isTrackBatchDeleteMode = !isTrackBatchDeleteMode;
+			loadMusicListFromDB();
+		}
+
+		function executeTrackBatchDelete() {
+			const checkboxes = document.querySelectorAll(".track-batch-check:checked");
+			if (checkboxes.length === 0) {
+				alert("削除する楽曲を選択してください。");
+				return;
+			}
+			if (!confirm("選択した楽曲データをすべて削除しますか？")) return;
+
+			const transaction = db.transaction(["tracks"], "readwrite");
+			const store = transaction.objectStore("tracks");
+			checkboxes.forEach(cb => {
+				const id = parseInt(cb.value);
+				store.delete(id);
+				delete decodedAudioCache[id];
+				if (selectedFileId === id) {
+					selectedFileId = null;
+					selectedFileName = "";
+					audioBuffer = null;
+				}
+			});
+
+			transaction.oncomplete = function () {
+				isTrackBatchDeleteMode = false;
+				if (selectedFileId === null) {
+					document.getElementById('music-info-btn').textContent = "曲名: 未選択";
+					document.getElementById('btn-play-start').disabled = true;
+					document.getElementById('btn-editor-start').disabled = true;
+				}
+				loadMusicListFromDB();
+				alert("選択した楽曲を削除しました。");
+			};
+		}
+
+		function selectTrack(id, name, arrayBuffer, isVideo) {
+			if (isTrackBatchDeleteMode) return;
+			selectedFileId = id;
+			selectedFileName = name;
+
+			const infoBtn = document.getElementById('music-info-btn');
+			const cleanName = removeMp3Extension(name);
+			infoBtn.textContent = "曲名: " + cleanName;
+
+			const items = document.querySelectorAll('.music-item');
+			items.forEach(el => el.classList.remove('selected'));
+			const activeItem = document.getElementById(`track-item-${id}`);
+			if (activeItem) activeItem.classList.add('selected');
+
+			document.getElementById('btn-play-start').disabled = true;
+			document.getElementById('btn-editor-start').disabled = true;
+			infoBtn.style.borderColor = "#ffaa00";
+			infoBtn.style.color = "#ffaa00";
+
+			// MP4の場合は背景動画URLを設定
+			if (isVideo) {
+				if (bgVideoObjectUrl) URL.revokeObjectURL(bgVideoObjectUrl);
+				const blob = new Blob([arrayBuffer], { type: 'video/mp4' });
+				bgVideoObjectUrl = URL.createObjectURL(blob);
+				const videoEl = document.getElementById('bg-video-element');
+				videoEl.src = bgVideoObjectUrl;
+				document.getElementById('bg-video-name').textContent = cleanName;
+				// チェックが入っていれば映像をプレビュー（音ミュートで）
+			} else {
+				// 音声ファイルの場合は背景動画をクリア（前のMP4が残らないよう）
+				// ただし手動でチェックをONにしていた場合はそのまま
+			}
+
+			if (!audioContext) {
+				audioContext = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: "interactive" });
+			}
+
+			// 一度デコード済みの曲はキャッシュから即座に復元し、再デコードの待ち時間なしで切り替える
+			if (decodedAudioCache[id]) {
+				audioBuffer = decodedAudioCache[id];
+				document.getElementById('btn-play-start').disabled = false;
+				document.getElementById('btn-editor-start').disabled = false;
+				infoBtn.style.borderColor = "#00ff66";
+				infoBtn.style.color = "#00ff66";
+				closeMusicSelectModal();
+				return;
+			}
+
+			audioContext.decodeAudioData(arrayBuffer.slice(0), function (buffer) {
+				audioBuffer = buffer;
+				decodedAudioCache[id] = buffer;
+				document.getElementById('btn-play-start').disabled = false;
+				document.getElementById('btn-editor-start').disabled = false;
+				infoBtn.style.borderColor = "#00ff66";
+				infoBtn.style.color = "#00ff66";
+				closeMusicSelectModal();
+			}, function (e) {
+				// MP4はブラウザによってWebAudioの直接デコードに失敗する場合がある。
+				// 背景動画としては正常なので、プレイ開始だけを無効化して明示する。
+				console.warn("Audio decode failed:", e);
+				audioBuffer = null;
+				infoBtn.textContent = isVideo
+					? "曲名: MP4音声を解析できません"
+					: "曲名: 解析失敗";
+				infoBtn.style.borderColor = "#ff3b3b";
+				infoBtn.style.color = "#ff3b3b";
+				if (isVideo) {
+					alert("このMP4は背景動画として登録されましたが、ブラウザが音声を解析できませんでした。音声ファイル版を登録するとプレイできます。");
+				} else {
+					alert("オーディオファイルの解析に失敗しました。対応していない形式の可能性があります。");
+				}
+			});
+		}
+
+		function renderChartManageList() {
+			const field = document.getElementById("chart-manage-field");
+			field.innerHTML = "";
+			const btn = document.getElementById("btn-toggle-batch");
+			const execBtn = document.getElementById("btn-exec-batch");
+
+			try {
+				let savedList = JSON.parse(localStorage.getItem("ING_SAVED_CHARTS_LIST")) || [];
+				if (savedList.length === 0) {
+					field.innerHTML = `<div style="color:#666; text-align:center; padding:10px; font-size:13px;">保存された自作譜面はありません</div>`;
+					btn.style.display = "none";
+					execBtn.style.display = "none";
+					return;
+				}
+				btn.style.display = "inline-block";
+				if (isBatchDeleteMode) {
+					btn.textContent = "キャンセル";
+					btn.style.background = "#555";
+					execBtn.style.display = "inline-block";
+				} else {
+					btn.textContent = "一括削除";
+					btn.style.background = "#ff5555";
+					execBtn.style.display = "none";
+				}
+				let dispCheck = isBatchDeleteMode ? "inline-block" : "none";
+
+				savedList.forEach(item => {
+					const row = document.createElement("div");
+					row.className = "chart-manage-item";
+					const cleanTrackName = removeMp3Extension(item.trackName || "");
+					row.innerHTML = `
+						<div style="display:flex; align-items:center; gap:6px; flex:1; overflow:hidden;">
+							<input type="checkbox" class="batch-del-check" value="${item.id}" style="display:${dispCheck};">
+							<input type="text" class="chart-rename-input" value="${item.name}" onchange="renameChart(${item.id}, this.value)">
+						</div>
+						<div style="display:flex; align-items:center; gap:10px;">
+							<span class="chart-code-disp" title="クリックでパスワード適用" onclick="applyDirectSavedChart(${item.id})">🔑 ${item.pwd}</span>
+							<span style="color:#888; font-size:11px; max-width:110px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">(${cleanTrackName})</span>
+							<button class="small-del-btn" style="background:#2a8fff; display:inline-flex; align-items:center; justify-content:center; padding:4px 8px;" title="譜面ファイル(.json)をダウンロード" onclick="downloadSavedChartItem(${item.id})"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAANnElEQVR4nOVbfXBc1XX/nXPu29XHaiXbQk2gHdNEjG0FUOWVx3Ta6Tpt0paSKSSZ7WTCGFkQQpLSr7/a0E42ahJCp8VgE7DBZDqT/EFnNkyHlnTSlk6slhBwtSDLtorBOIWBunbsSrZsS7vv3nv6x74n1kKydldrIPCbebOz89695+Oee++595xDaD44m83y6OioB+AXvJNMJrMqDMPV4n2ak5IkIrU2DIFgWkSmisXiFABXR58rAjWxL87lclQoFOaZHxgYuFwEgwAPEum1DLpSQZcRNKVAAkAQfWoBlAE6C+hPFfoTeD3kwfukXC7uO3Dg9bjPXC4nhUJB0SRFNEMBnM8DIyMVhgYHP/ILjOTvgvhGImxi5i4igqrOPwC8qnoiUgBQVSIiBsBEhPhRVXjnziiwTz3+wQNPFIvF1wAgnwePjABYoSJWogDK5XIcj3gmk9kshC8S040i0qWq8N57VS0DUABERFRFcyFtjX+1oqW4TYKZmYjgnJ9W77/vNNxdLE48DcxbhK9qX58QjTSKiDoA2LhxY8YI3UVENzEzR0KXIua5URpVUFX1AJQICWaRCgn9R+fDu4vFiecW8lQP6mYuJnTNNdesak0mvkpMX2DmhPe+rKqOiKSRfmuERlOHmTnhnLMK2j0zc/arL7744qlGlMB1fEv5fJ4LhYLLZDK/2dqa/E8TmD8EQM65OVRG3ODSCY+IhsQ0icgHRu7sTHfsy2T6bygUCi6fR11WV+uHDMSL3Ma8sOSJQN772Ujodwyqapm5FQCsc98YG3v+L6JX8zxfDLUogAH4tWvXtvT0dP9twpjPWOdKqopojr/jiKYFRCQZhuH3Xn/j2NCxY8fOowYlLKcABuB7e3vTq7o6/z4IzK87584DqNvU462tFlRtl/UiFJE2a+3o8RP2pldf3T+NZZRwMY4IANatW5fq7Eg9aQLza5HwwUXaLN4REUpzcwjDECDC0jsWAaowQYCWlpYVKSG07kdnzsxcf/jw4bORLIsqYan5G+/xSHekHlup8GG5jCs/9CH64Ac+WBFqKbVr5fvjJ47rfx89iiCRaEQJgXPufGDkVzo6UgVk8YlcT04LhcKiml+UlWw2a0ZHR+3g4MYHkkFwp21QeAAQEZw6dRJfyY/IZz97c01rxuOPf8//+V1fdmvWrIFzdW/tMUIRaSuH4cNjY89/IZZp4UdvYSiXy8no6KjNZH5pKAiCO0NrZ9Gg8G+CEIYhvPfzv4s91d/Uul5cBIG1djYRBHds3Nj/+dHRUZvL5WThRwsVwIVCwQ8MDPQaMTvU+zDad1cMIgIz1/Q0QfiYpnjnwsAE2zOZq9dHTtIFMl/wJ5fLEQA1Qg8xc6f33uLSOjaXGuRVHTO3MyV2oeLMXfDBvAJiN3JwYOAzxpiPR57WO+rkNANEJM65OWPMlo0b+4dGRkZ89VSIFUCFQsH39fWlSPhrkWPxszzyF4CISNV7EZPv7e1NR6dHAiIFZLNZAaCtra1bg8D0eu9LqO+c8G4He6+lwJgrOzs7bgOguVyOgYqQNDo66vr6+hLM+APvvX+3uLjNBBGx984Ly+9fd911rbEVcDz6bW3J3zYiG7z3Id5box+DvdeyCH84DMMbAGg2mxXu6elRAGDioejDpl46vhshhCEA2LJli+dCoeCuvfbaHgC/EZl/U/b9dyMq08A7ELIDAwOXj4yMeAaAIAiyItIZ3d+9Z1b/RUCqWhaRDkP0USCa60L4aHRD29Dx62cNRKTEtAWIdgGQDqp6At57q/9CRNOAQJoBINzf3385wL/ovSrRe9r8Y1Dl2p3W9vVlrmAi6gV0FSrRmfeFAgCERNTV2ooPc8D888wseB9sfzFUoUTERP5KVsblURjqfbEAVqBKRCDFFQag1Y12I7K8yyAiMMaAufb1lYhgjKmpfwAN3xop0WpDhJaGWgOYmpqCtVaFmZYyH2MEJ0+e0tnZ2Zr7LZVKOHnypKp6snZx4QiA816NMZROp+tnHgCzJI1qfX4/EcE6i850p7/tc7ebVV1ddPbcORXmyssFrgQTY3ZuTjdvvq5y/LyIJcTvBgcH6etf/4a0tLSQ14VLEwGq6rxDe3uKZmZm/N899pidmjolxgR1XqIqGUDn6mgBVYURgzNnTvNzz/7Y/emf3WWuuuqqmt3ni10zxO82bOijDRv6lu3z6NFX/D3f/Kafnv6/BoQH1LkSE9FUXa1QUYKIwbPPPkuf/tQnw+3b7y2fO3dOAaBcLsNaC+fc/GOthfe1bzKqumgf5XIZADA7O6s77r+/9MmbbgyfeeZHJGIaiiEo0TTD41gU5qrLB1BVpNNptLe38SMP76bh4aHy+Pi4TSQSMMYgClWteBEUkfn/iUQCExP73a3D28q7dj1IbW1tnE6n6xa+ckOkIML/sId9LdoC63aCvPdQVXR3d+Olw4fp1uEht3PnjrBUKikzwznXaHRnHs45MDPCMNQHH/xWOLxtyE5OHuLu7m6KkjAa6ZZUVb13r7L3fFRVp1G5+2+IW2st2traKJFIyEMPfku3DW0Nx8df8PHoNcJk3EZEcODAATc0tLX0wM4dmkgkuL29Hda+JcZRKxSA8aozgHmFAJhNg5kxEe6PMjtWdCAyxmBmZgZijL/tts/R7bd/PkgkEhSPZC0zzTkHEYG1Vr/96J5wz55HfFguS0c6vRLBY3giSnrnDznFAAOwIBSZGVEqyopgrUV7ezuSiYAf2LkD24a2lg4cmHC1WEP1qB86dMhtG7qldN9922GMkfZUqhnCQ1U9M8MD48ViMeQKYfz7inuuQmVtALq7u+nQoYMyvG3I7tr1UDkMw/m1YSFiC7HW4pGHd9ttQ1vtxMR+6e7uprjPZkIVe4F5c5/9YRT9TaCJlyIVa0hBRGTnjvt1eOiW8ODBgy52ceOYIDA/6v7W4W3l7dvv9SLCqVRHU0a9CgogYa2dC8Pw3wCA8/k8F4uTr3mvT4uINGMaVMN7DyLSNWvW8MSBCRoe2mp3794VWms1jgU65/TRR/eEw9tusePjL9Cbo95wZHhRqKoXEVHosxMTEz/J58G8d+9eBgDn9TtNpbYA1lqkUimIMXz/fdt129At4UuHD/sjR4744eGh0r1/89eeiLijo+mjXg0FCKr8XQDYuzfLceKi9vb2plev6jxIRFcAuKSxAWMMTk9Po7OrS4kIU1NT1NXVBesccOlO5QrAqOr/Oo++YrF4GtEdoGazWXPkyJEzzvtHRIRrnQaxp1bvo6pYtXo1vPfknKPVq1dX3GvmhvqrSXpVJyLsvf92sVg8HQVI9YK01fXr169Od6QOEKEHlSuyJa1AVTEzM7MiTy8mvpIxJwAd6fRy/oUCYFWdniuFH5mYmPhp1NTH4W+NwuOnMpmBu5OJxAPW2vJiMcJKzq5Fe3tK/+iP/4STyUoy09sdS9Yon6hUmqVH9+xxZ8/OLHkoUlVnjEmUS+FfTUxMnKjOKK1mm/L5PD355JPChB8bwxnn/NzCSFGc9NR9WQ9+8M//ssLUmebgd67/rfDE8eOLJlVpJUEi6ZyfmJo+vfnmm28OR0ZG5mMg1QkQOjk5ycViMezv7/+SSOLp6IS46EFJVXH69GmkUqnIAt5eE4hpnjt37mLTUKOTnw+t+9KRI0dKk5OTF1wAX2DihULB5XI52b9//77Qhl8RkaSqNnczfnthRSTprP3L8fHxZxZLpn5LCkyhUPBRStk9mzZt3BSY4FOL5QgSETo7Oy8x/8sjvcQCqKrWGNMWhuETY8+Pf62qruACLGW3BIDWrVvXnu5I/dAYyTjn5hOjvXdoaWnFxz72cTZBQLhY8uOlQqWcAjYM9amn/tXNzc1SJbxREV5EWp11406nthSLR89UtboAF2ObAfj+/quuSCY6nxLh9dVKaMY22AwQETo6OuatYF5451+ZnSttOVCpN1oyX3i5cRMAbmDDhrWJVNs/sUif935+OtTqhFxqVJ0uQ2Zuc969dPbs7A2Tk5NHliuiWNZw4w76+vo+kGpvKxgjv2qtnb3ElSH1QqO9vtVa+9zU9JlPv/zyy2/UUkFSqwACwEU1Aw8GIrc6752qlt/pXMKoTCcQZgmt/c7rbxz74rFjx87ncpBC4S31h29BPSM4P48yA/13mCC4h5m7vHNz+maB1NuGuJBKRFq896et0y8Xi8VdC3ldDvUw7VFJo5fiC/sfnp0rb/bOP0HMLcycVFX3dvgMMR1mTopIi3fu++Vw9peLxeKufD4f1wvVfKex4rK5TCZzkwjfJUybAIX3GlePMZp3pI4LLYWZEgDBO/+8U3f32NgLjy/kqR6sZBHjPICRirZ5cGAgJ0buAGGLiFAUMyhHVlFdNLkcTUVV8SQRSVQ8WVntvf6Hg39obOyFAio1xrGSGwsQNNKoGgs1X6kg1d8D0fVEtKGyVSq8ny+dtUS0WKUnqSoTkamk1ld0VQmu4EWF/kDVFcbGxp9ZinYjaNY2FpfYzAu2du3alstWrbqGArmOFJuJsF4JV0DRSUStC93XSDmzRDitimMg/Jf3ug/wz5w/X94/OTlZXorWihhfaQcLkcvl5MSJE7RYecrVV1/9c8x8eYJ5DQylWTUZzY8SoGecoxNhGB4/ePDgCSwQLpvNmp6eHl3piC/E/wMtLFMl5YQquAAAAABJRU5ErkJggg==" alt="ダウンロード" style="width:14px; height:14px; display:block; pointer-events:none;"></button>
+							${isBatchDeleteMode ? "" : `<button class="small-del-btn" onclick="deleteChartItem(${item.id})">削除</button>`}
+						</div>
+					`;
+					field.appendChild(row);
+				});
+			} catch (e) {}
+		}
+
+		function toggleBatchDeleteMode() {
+			isBatchDeleteMode = !isBatchDeleteMode;
+			renderChartManageList();
+		}
+
+		function executeBatchDelete() {
+			const checkboxes = document.querySelectorAll(".batch-del-check:checked");
+			if (checkboxes.length === 0) {
+				alert("削除する譜面を選択してください。");
+				return;
+			}
+			if (!confirm("選択した譜面データを削除しますか？")) return;
+			try {
+				let savedList = JSON.parse(localStorage.getItem("ING_SAVED_CHARTS_LIST")) || [];
+				checkboxes.forEach(cb => {
+					const id = parseInt(cb.value);
+					savedList = savedList.filter(item => item.id !== id);
+				});
+				localStorage.setItem("ING_SAVED_CHARTS_LIST", JSON.stringify(savedList));
+				isBatchDeleteMode = false;
+				renderChartManageList();
+				alert("譜面を削除しました。");
+			} catch (e) {}
+		}
+
+		function deleteChartItem(id) {
+			if (!confirm("この譜面を削除しますか？")) return;
+			try {
+				let savedList = JSON.parse(localStorage.getItem("ING_SAVED_CHARTS_LIST")) || [];
+				savedList = savedList.filter(item => item.id !== id);
+				localStorage.setItem("ING_SAVED_CHARTS_LIST", JSON.stringify(savedList));
+				renderChartManageList();
+			} catch (e) {}
+		}
+
+		function renameChart(id, newVal) {
+			try {
+				let savedList = JSON.parse(localStorage.getItem("ING_SAVED_CHARTS_LIST")) || [];
+				savedList.forEach(item => {
+					if (item.id === id) {
+						item.name = newVal;
+					}
+				});
+				localStorage.setItem("ING_SAVED_CHARTS_LIST", JSON.stringify(savedList));
+			} catch (e) {}
+		}
+
+		function applyDirectSavedChart(id) {
+			try {
+				let savedList = JSON.parse(localStorage.getItem("ING_SAVED_CHARTS_LIST")) || [];
+				const item = savedList.find(n => n.id === id);
+				if (item) {
+					const dataStr = localStorage.getItem("ING_PWD_" + item.pwd);
+					if (dataStr) {
+						window.originalChartBackup = JSON.parse(dataStr);
+						window.currentPlayChart = JSON.parse(dataStr);
+						alert(`自作譜面「${item.name}」をロードしました。`);
+					}
+				}
+			} catch (e) {}
+		}
+
+		function startPlayMode() {
+			if (!audioBuffer) return;
+			isEditMode = false;
+			document.getElementById('editor-status-indicator').style.display = "none";
+			document.getElementById('result-editor-block').style.display = "none";
+			initiateGame(false);
+		}
+
+		function startEditorMode() {
+			if (!audioBuffer) return;
+			isEditMode = true;
+			document.getElementById('editor-status-indicator').style.display = "block";
+			document.getElementById('result-editor-block').style.display = "block";
+			initiateGame(true);
+		}
+
+		function initiateGame(editFlag, onlineStartEpoch = null) {
+			document.getElementById('start-overlay').style.display = 'none';
+
+				const cleanName = removeMp3Extension(selectedFileName);
+				const titleEl = document.getElementById('top-bar-music-title');
+				titleEl.textContent = "Music: " + cleanName + " [" + currentDifficulty + "]";
+				titleEl.style.color = "#ff1493";
+
+			currentScore = 0;
+			currentCombo = 0;
+			maxCombo = 0;
+			countPerfect = 0;
+			countGreat = 0;
+			countMiss = 0;
+			currentHealth = maxHealth;
+			liveNotes = [];
+			activeLongNoteSpawns = {};
+			laneReleaseTimes = {};
+			customCreatedChart = [];
+			totalPausedDuration = 0;
+			isAutoMode = false;
+			updateAutoButtonUI();
+			
+			// yTargetを計算
+			yTarget = calculateYTarget();
+
+			updateHealthBarUi();
+			refreshUi();
+
+			if (!editFlag && window.originalChartBackup) {
+				window.currentPlayChart = JSON.parse(JSON.stringify(window.originalChartBackup));
+				// spawnTime昇順に並べておくことで、再生中の譜面消化処理（毎フレームの走査）を高速化する
+				window.currentPlayChart.sort((a, b) => a.expectTime - b.expectTime);
+			} else if (!editFlag) {
+				window.currentPlayChart = null;
+			}
+			window.chartSpawnIndex = 0; // 譜面再生位置（ポインタ）をリセット
+
+			window.proceduralSpawnTimer = 0;
+			window.lastTrillLeft = -1;
+			window.lastTrillRight = -1;
+			window.useLeftTurn = true;
+
+			// 曲名+難易度でシードを固定化（同じ曲・難易度なら常に同じ譜面）
+			if (!editFlag && !window.currentPlayChart) {
+				initSeededRandom(selectedFileName + "_" + currentDifficulty);
+				window.currentPlayChart = generateChartFromAudio(audioBuffer, currentDifficulty); // 音声のオンセットに同期
+			} else {
+				_seedRand = null;
+				if (editFlag && audioBuffer) getOnsets(audioBuffer); // 録画の吸着用に事前解析
+			}
+
+			// リザルトスコアの満点配分を確定（譜面の総ノーツ数からノーツ1個あたりの配点を算出）
+			totalNoteCount = (window.currentPlayChart && window.currentPlayChart.length) ? window.currentPlayChart.length : 0;
+			scoreUnitValue = totalNoteCount > 0 ? (MAX_SCORE / totalNoteCount) : 0;
+
+			if (audioContext.state === "suspended") {
+				audioContext.resume();
+			}
+
+			audioSource = audioContext.createBufferSource();
+			audioSource.buffer = audioBuffer;
+
+			analyser = audioContext.createAnalyser();
+			analyser.fftSize = 64;
+			masterGainNode = audioContext.createGain();
+			masterGainNode.gain.value = masterVolume;
+			audioSource.connect(analyser);
+			analyser.connect(masterGainNode);
+			masterGainNode.connect(audioContext.destination);
+
+			dataArray = new Uint8Array(analyser.frequencyBinCount);
+			isRunning = true;
+			isPaused = false;
+
+			const _ch = window.currentPlayChart, _firstSpawn = (_ch && _ch.length) ? _ch[0].expectTime - getFallMs() : Infinity;
+			const leadMs = Math.max(200, 120 - _firstSpawn);
+			const actualDelayMs = (onlineStartEpoch && onlineState.active) ? Math.max(0, onlineStartEpoch - Date.now()) : leadMs;
+			const startAt = audioContext.currentTime + actualDelayMs / 1000;
+			audioSource.start(startAt);
+			gameStartTime = startAt;
+			lastLoopTime = performance.now();
+			animationFrameId = requestAnimationFrame(gameLoopUpdate);
+			refreshUi();
+			setTimeout(() => { if (isRunning && !isPaused) syncBgVideoWithGame(true); }, actualDelayMs);
+			if (!onlineState.active) { try { startGameRecording(); } catch(e) {} }
+		}
+
+		function gameLoopUpdate(now) {
+			if (!isRunning) return;
+			if (isPaused) return;
+
+			let currentDelta = getSongTimeMs(performance.now());
+			window.curSongMs = currentDelta; // 開始前(リードイン)は負の値のまま扱う
+
+			// 曲が終わった後、残ノーツがなければ終了
+			const audioDone = audioBuffer && currentDelta >= audioBuffer.duration * 1000;
+			if (audioDone) {
+				if (isEditMode) {
+					// エディットモードでは譜面ノーツの消化を待つ必要がないため、楽曲終了と同時に終了する
+					finishGameSession();
+					return;
+				} else if (liveNotes.length === 0 &&
+					((!window.currentPlayChart) || window.chartSpawnIndex >= window.currentPlayChart.length)) {
+					finishGameSession();
+					return;
+				}
+			}
+
+			currentSoflanScale = 1.0;
+
+			if (!isEditMode && !audioDone) {
+				if (!window.currentPlayChart) {
+					generateProceduralNotes(currentDelta);
+				} else {
+					// 譜面はspawnTime昇順にソート済みのため、配列の詰め直し（splice）を行わず
+					// ポインタを進めるだけで処理できる。ノーツ数が多い譜面ほど負荷削減効果が大きい
+					const chart = window.currentPlayChart, fallMs = getFallMs();
+					while (window.chartSpawnIndex < chart.length && currentDelta >= chart[window.chartSpawnIndex].expectTime - fallMs) {
+						const event = chart[window.chartSpawnIndex];
+						spawnNoteDom(event.lane, event.type, event.spawnTime, event.expectTime, event.duration);
+						window.chartSpawnIndex++;
+					}
+				}
+			}
+
+			// オートモード時の自動古子
+			if (isAutoMode && !isEditMode) {
+				for (let i = liveNotes.length - 1; i >= 0; i--) {
+					const note = liveNotes[i];
+					const deviation = Math.abs(currentDelta - note.expectTime);
+					
+					if (note.type === 'normal' && !note.autoTriggered && deviation <= strictWindow * 0.35) {
+						note.autoTriggered = true;
+						displayRating("Perfect", "rating-perfect");
+						currentScore += scoreUnitValue;
+						countPerfect++;
+						registerComboHit();
+						playHitSound();
+						recycleNote(note);
+						liveNotes.splice(i, 1);
+						refreshUi();
+					} else if (note.type === 'long' && !note.holding && deviation <= strictWindow * 0.35) {
+						note.holding = true;
+						if (note.animation) { try { note.animation.cancel(); } catch (e) {} note.animation = null; }
+						displayRating("Perfect", "rating-perfect");
+						currentScore += scoreUnitValue * 0.5; // ロングノーツは始点/終点で満点を折半
+						countPerfect++;
+						registerComboHit();
+						playHitSound();
+						refreshUi();
+					} else if (note.type === 'long' && note.holding && currentDelta >= (note.expectTime + note.duration)) {
+						displayRating("Perfect", "rating-perfect");
+						registerComboHit();
+						currentScore += scoreUnitValue * 0.5; // 終点分
+						countPerfect++;
+						recycleNote(note);
+						liveNotes.splice(i, 1);
+						refreshUi();
+					}
+				}
+			}
+			
+			// ノーツの位置更新と見逃し判定（落下の見た目はWeb Animations APIに一任済みのため、
+			// ここでは判定処理と、ホールド中のロングノーツの伸縮のみを行う）
+			for (let i = liveNotes.length - 1; i >= 0; i--) {
+				const note = liveNotes[i];
+
+				if (note.animation && !note.holding) {
+					const want = currentDelta - note.spawnTime, cur = note.animation.currentTime;
+					if (cur === null || Math.abs(cur - want) > 10) note.animation.currentTime = want;
+				}
+				if (note.type === 'normal') {
+					// 判定位置を基準に、タイミング幅を完全に通り過ぎた場合に見逃し判定
+							if (currentDelta > note.expectTime + strictWindow) {
+								displayRating("Miss", "rating-miss");
+								countMiss++;
+								currentCombo = 0;
+								if (!isEditMode) currentHealth -= MISS_HEALTH_PENALTY;
+						updateHealthBarUi();
+						checkGameOver();
+						recycleNote(note);
+						liveNotes.splice(i, 1);
+						refreshUi();
+					}
+				} else if (note.type === 'long') {
+					if (note.holding) {
+						// 押下中は判定ラインに頭が固定され、尻尾が追いつくまで高さが縮んでいく
+						let endY = ySpawn + (currentDelta - (note.spawnTime + note.duration)) * velocity * currentSoflanScale + LONG_Y_OFFSET;
+						note.element.style.transform = `translateY(${endY}px)`;
+						let longHeight = yTarget + LONG_Y_OFFSET - endY;
+						if (longHeight < 30) longHeight = 30;
+						note.element.style.height = `${longHeight}px`;
+					}
+					// ホールド中でなければ落下の見た目はアニメーションに任せるため再設定不要
+
+					// ロングノーツ全体を完全に見逃した場合
+						if (!note.holding && currentDelta > (note.expectTime + note.duration + strictWindow)) {
+							displayRating("Miss", "rating-miss");
+							countMiss++;
+							currentCombo = 0;
+							if (!isEditMode) currentHealth -= MISS_HEALTH_PENALTY;
+						updateHealthBarUi();
+						checkGameOver();
+						recycleNote(note);
+						liveNotes.splice(i, 1);
+						refreshUi();
+						} else if (note.holding && currentDelta >= (note.expectTime + note.duration)) {
+							// 最後までしっかり押しきった場合
+							displayRating("Perfect", "rating-perfect");
+							currentScore += scoreUnitValue * 0.5; // 終点分
+							countPerfect++;
+							registerComboHit();
+							playHitSound();
+							recycleNote(note);
+							liveNotes.splice(i, 1);
+							refreshUi();
+						}
+				}
+			}
+
+			if (onlineState.active) { sendOnlineState(false); renderOnlineOpponentView(); }
+			lastLoopTime = now;
+			animationFrameId = requestAnimationFrame(gameLoopUpdate);
+		}
+
+		function generateProceduralNotes(delta) {
+			const cfg = DIFFICULTY_SETTINGS[currentDifficulty];
+			if (delta < window.proceduralSpawnTimer) return;
+			window.proceduralSpawnTimer = delta + cfg.spawnInterval;
+
+			let availablePool = [];
+			for (let i = 0; i < currentKeyMode; i++) {
+				if (delta > (laneReleaseTimes[i] || 0)) {
+					availablePool.push(i);
+				}
+			}
+			if (availablePool.length === 0) return;
+
+			let targetLanes = [];
+			const isTrill = seededRandom() < cfg.trillChance;
+
+			if (isTrill && availablePool.length >= 2) {
+				if (window.lastTrillLeft !== -1 && availablePool.includes(window.lastTrillLeft) && availablePool.includes(window.lastTrillRight)) {
+					if (window.useLeftTurn) {
+						targetLanes.push(window.lastTrillLeft);
+					} else {
+						targetLanes.push(window.lastTrillRight);
+					}
+					window.useLeftTurn = !window.useLeftTurn;
+				} else {
+					let i1 = Math.floor(seededRandom() * availablePool.length);
+					let left = availablePool[i1];
+					availablePool.splice(i1, 1);
+					let i2 = Math.floor(seededRandom() * availablePool.length);
+					let right = availablePool[i2];
+					window.lastTrillLeft = left;
+					window.lastTrillRight = right;
+					window.useLeftTurn = true;
+					targetLanes.push(left);
+				}
+			} else {
+				let count = 1;
+				const rand = seededRandom();
+				if (rand < cfg.tripleChance) count = 3;
+				else if (rand < cfg.tripleChance + cfg.doubleChance) count = 2;
+
+				let poolCopy = [...availablePool];
+				for (let c = 0; c < count; c++) {
+					if (poolCopy.length === 0) break;
+					let idx = Math.floor(seededRandom() * poolCopy.length);
+					targetLanes.push(poolCopy[idx]);
+					poolCopy.splice(idx, 1);
+				}
+			}
+
+			// 出現と同時に見かけの位置がラインにジャストで重なる時間を計算
+			const expectTime = delta + (yTarget - ySpawn) / velocity;
+			const isLong = seededRandom() < cfg.longNoteChance;
+
+			targetLanes.forEach(laneIdx => {
+				if (isLong) {
+					const duration = 400 + Math.floor(seededRandom() * 800);
+					spawnNoteDom(laneIdx, 'long', delta, expectTime, duration);
+					laneReleaseTimes[laneIdx] = delta + duration + 300;
+				} else {
+					spawnNoteDom(laneIdx, 'normal', delta, expectTime);
+					laneReleaseTimes[laneIdx] = delta + 140;
+				}
+			});
+		}
+
+		function spawnNoteDom(laneIdx, type, spawnTime, expectTime, duration = 0) {
+			const laneEl = laneElements[laneIdx];
+			if (!laneEl) return;
+			spawnTime = expectTime - getFallMs(); // 見た目が必ず expectTime にラインへ到達するよう再計算
+
+			// DOM要素プールから再利用（生成/破棄を減らしてカクつきを抑制）
+			const pool = (type === 'long') ? notePoolLong : notePoolNormal;
+			const reused = pool.length > 0;
+			const noteEl = reused ? pool.pop() : document.createElement('div');
+			noteEl.className = `note ${type}`;
+			// 再利用時のみ、前回のアニメーションが残っていないか念のため停止（新規要素は不要なため呼び出しを省略）
+			if (reused && noteEl.getAnimations) noteEl.getAnimations().forEach(a => a.cancel());
+
+			// ロング以外/未ホールド中は高さが変化しないため、ここで一度だけ計算してキャッシュする
+			let cachedLongHeight = 30;
+			let startY, endYFinal, animDurationMs;
+
+			if (type === 'long') {
+				cachedLongHeight = duration * velocity;
+				if (cachedLongHeight < 30) cachedLongHeight = 30;
+				noteEl.style.height = `${cachedLongHeight}px`;
+				startY = ySpawn - duration * velocity + LONG_Y_OFFSET;
+				const tMax = expectTime + duration + strictWindow;
+				endYFinal = ySpawn + (tMax - spawnTime - duration) * velocity + LONG_Y_OFFSET;
+				animDurationMs = tMax - spawnTime;
+			} else {
+				startY = ySpawn;
+				const tMax = expectTime + strictWindow;
+				endYFinal = ySpawn + (tMax - spawnTime) * velocity;
+				animDurationMs = tMax - spawnTime;
+			}
+			noteEl.style.transform = `translateY(${startY}px)`;
+
+			const newNoteObj = {
+				element: noteEl,
+				lane: laneIdx,
+				type: type,
+				spawnTime: spawnTime,
+				expectTime: expectTime,
+				duration: duration,
+				holding: false,
+				currentY: ySpawn,
+				cachedLongHeight: cachedLongHeight,
+				animation: null
+			};
+
+			liveNotes.push(newNoteObj);
+			laneEl.appendChild(noteEl);
+
+			// 落下の動きはブラウザのコンポジタ側に一任し、メインスレッドの負荷に左右されない
+			// 滑らかな動きにする（判定はcurrentDeltaベースのまま変更なし）
+			if (animDurationMs > 0 && noteEl.animate) {
+				newNoteObj.animation = noteEl.animate(
+					[{ transform: `translateY(${startY}px)` }, { transform: `translateY(${endYFinal}px)` }],
+					{ duration: animDurationMs, easing: 'linear', fill: 'forwards' }
+				);
+				// スポーンが1フレーム遅れても、音声時計基準の正しい位置から落下を開始する
+				newNoteObj.animation.currentTime = Math.max(0, (window.curSongMs || 0) - spawnTime);
+			}
+		}
+
+		// ノーツDOM要素を破棄せずプールに戻し、次回の生成コストを削減する
+		function recycleNote(note) {
+			const el = note.element;
+			if (note.animation) {
+				try { note.animation.cancel(); } catch (e) {}
+				note.animation = null;
+			}
+			if (el && el.parentNode) el.parentNode.removeChild(el);
+			if (note.type === 'long') {
+				notePoolLong.push(el);
+			} else {
+				notePoolNormal.push(el);
+			}
+		}
+
+		function handleGlobalKeyDown(e) {
+			if (!isRunning || isPaused) return;
+			if (e.repeat) return;
+			const key = e.key.toLowerCase();
+			if (keyConfig[key] === undefined) return;
+			const laneIdx = keyConfig[key];
+
+			const laneEl = laneElements[laneIdx];
+			if (laneEl) laneEl.classList.add('active');
+
+			handleTapKeyJudgement(laneIdx, e.timeStamp);
+		}
+
+		function handleGlobalKeyUp(e) {
+			if (!isRunning || isPaused) return;
+			const key = e.key.toLowerCase();
+			if (keyConfig[key] === undefined) return;
+			const laneIdx = keyConfig[key];
+
+			const laneEl = laneElements[laneIdx];
+			if (laneEl) laneEl.classList.remove('active');
+
+			handleKeyReleaseJudgement(laneIdx, e.timeStamp);
+		}
+
+		function handleTapKeyJudgement(laneIdx, ts) {
+			let currentDelta = getSongTimeMs(ts);
+
+			if (isEditMode) {
+				if (!activeLongNoteSpawns[laneIdx]) {
+					activeLongNoteSpawns[laneIdx] = { startTime: snapToOnset(currentDelta) };
+				}
+				playHitSound();
+				return;
+			}
+
+			// 該当レーンのノーツを、タイミングが近い順にソートして抽出
+			const candidates = liveNotes.filter(n => n.lane === laneIdx && !n.holding);
+			if (candidates.length === 0) return;
+
+			candidates.sort((a, b) => Math.abs(currentDelta - a.expectTime) - Math.abs(currentDelta - b.expectTime));
+			const targeted = candidates[0];
+			const deviation = Math.abs(currentDelta - targeted.expectTime);
+
+			if (deviation <= strictWindow) {
+				// プレイヤー調整のオフセットを加味（演出・ヒット音先行用）
+				if (targeted.type === 'normal') {
+					if (deviation <= strictWindow * 0.35) {
+						displayRating("Perfect", "rating-perfect");
+						currentScore += scoreUnitValue;
+						countPerfect++;
+					} else {
+						displayRating("Great", "rating-great");
+						currentScore += scoreUnitValue * GREAT_RATIO;
+						countGreat++;
+					}
+					registerComboHit();
+					playHitSound();
+					recycleNote(targeted);
+
+					const idx = liveNotes.indexOf(targeted);
+					if (idx > -1) liveNotes.splice(idx, 1);
+					refreshUi();
+				} else if (targeted.type === 'long') {
+					targeted.holding = true;
+					if (targeted.animation) { try { targeted.animation.cancel(); } catch (e) {} targeted.animation = null; }
+					// アニメーションから手動制御への切り替え時、見た目が飛ばないよう同じ式で現在位置を引き継ぐ
+					let endYNow = ySpawn + (currentDelta - (targeted.spawnTime + targeted.duration)) * velocity * currentSoflanScale + LONG_Y_OFFSET;
+					targeted.element.style.transform = `translateY(${endYNow}px)`;
+					let longHeightNow = yTarget + LONG_Y_OFFSET - endYNow;
+					if (longHeightNow < 30) longHeightNow = 30;
+					targeted.element.style.height = `${longHeightNow}px`;
+					if (deviation <= strictWindow * 0.35) {
+						displayRating("Perfect", "rating-perfect");
+						currentScore += scoreUnitValue * 0.5; // ロングノーツは始点/終点で満点を折半
+						countPerfect++;
+					} else {
+						displayRating("Great", "rating-great");
+						currentScore += scoreUnitValue * 0.5 * GREAT_RATIO;
+						countGreat++;
+					}
+					registerComboHit();
+					playHitSound();
+					refreshUi();
+				}
+			}
+		}
+
+		function handleKeyReleaseJudgement(laneIdx, ts) {
+			let currentDelta = getSongTimeMs(ts);
+
+			if (isEditMode) {
+				if (activeLongNoteSpawns[laneIdx]) {
+					const start = activeLongNoteSpawns[laneIdx].startTime;
+					const duration = currentDelta - start;
+					if (duration > 180) {
+						customCreatedChart.push({
+							lane: laneIdx,
+							type: 'long',
+							spawnTime: start - getFallMs(),
+							expectTime: start,
+							duration: duration
+						});
+					} else {
+						customCreatedChart.push({
+							lane: laneIdx,
+							type: 'normal',
+							spawnTime: start - getFallMs(),
+							expectTime: start,
+							duration: 0
+						});
+					}
+					currentScore += 100;
+					currentCombo++;
+					if (currentCombo > maxCombo) maxCombo = currentCombo;
+					countPerfect++;
+					displayRating("Perfect", "rating-perfect");
+					refreshUi();
+					delete activeLongNoteSpawns[laneIdx];
+					return;
+				}
+			}
+
+			const holdingLongNotes = liveNotes.filter(n => n.lane === laneIdx && n.type === 'long' && n.holding);
+			if (holdingLongNotes.length > 0) {
+				const targeted = holdingLongNotes[0];
+				const endTime = targeted.expectTime + targeted.duration;
+				const deviation = Math.abs(currentDelta - endTime);
+
+				// 離すタイミングが早すぎたり遅すぎたりしないか判定
+				if (deviation <= strictWindow) {
+					displayRating("Perfect", "rating-perfect");
+					registerComboHit();
+					currentScore += scoreUnitValue * 0.5; // 終点分
+					countPerfect++;
+					} else {
+						displayRating("Miss", "rating-miss");
+						currentCombo = 0;
+						countMiss++;
+						if (!isEditMode) currentHealth -= MISS_HEALTH_PENALTY;
+					updateHealthBarUi();
+					checkGameOver();
+					recycleNote(targeted);
+					const idx = liveNotes.indexOf(targeted);
+					if (idx > -1) liveNotes.splice(idx, 1);
+				}
+				refreshUi();
+			}
+		}
+
+		function displayRating(text, cssClass) {
+			const rateEl = elJudgeRating;
+			rateEl.textContent = text.toUpperCase();
+			rateEl.className = cssClass;
+			rateEl.style.opacity = '1';
+			rateEl.style.transform = 'translateX(-50%) scale(1.1)';
+			setTimeout(() => {
+				rateEl.style.transform = 'translateX(-50%) scale(1.0)';
+			}, 40);
+			clearTimeout(window.ratingTimeoutId);
+			window.ratingTimeoutId = setTimeout(() => {
+				rateEl.style.opacity = '0';
+			}, 600);
+		}
+
+		// コンボを1加算し、規定数だけ連続でノーツを取れていたら体力を1回復する
+		function registerComboHit() {
+			currentCombo++;
+			if (currentCombo > maxCombo) maxCombo = currentCombo;
+			if (currentCombo % COMBO_HEAL_INTERVAL === 0 && currentHealth < maxHealth) {
+				currentHealth = Math.min(maxHealth, currentHealth + 1);
+				updateHealthBarUi();
+			}
+		}
+
+		function updateHealthBarUi() {
+			if (elHealthBarFill) {
+				let percent = (currentHealth / maxHealth) * 100;
+				if (percent < 0) percent = 0;
+				elHealthBarFill.style.height = `${percent}%`;
+			}
+		}
+
+			function playHitSound() {
+				if (!audioContext || seVolume <= 0) return;
+				const osc = audioContext.createOscillator();
+				const gain = audioContext.createGain();
+				osc.type = 'sine';
+				osc.frequency.setValueAtTime(660, audioContext.currentTime);
+				osc.frequency.exponentialRampToValueAtTime(120, audioContext.currentTime + 0.08);
+				gain.gain.setValueAtTime(seVolume, audioContext.currentTime);
+				gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.08);
+				osc.connect(gain);
+				gain.connect(audioContext.destination);
+				osc.start();
+				osc.stop(audioContext.currentTime + 0.08);
+			}
+
+		function refreshUi() {
+			elScoreDisplay.textContent = String(Math.round(currentScore)).padStart(8, '0');
+			if (currentCombo >= 3) {
+				elComboCount.textContent = currentCombo;
+				elComboContainer.classList.add('pop');
+			} else {
+				elComboContainer.classList.remove('pop');
+			}
+		}
+
+		function pauseAllNoteAnimations() {
+			liveNotes.forEach(note => {
+				if (note.animation) {
+					try { note.animation.pause(); } catch (e) {}
+				}
+			});
+		}
+
+		function resumeAllNoteAnimations() {
+			liveNotes.forEach(note => {
+				if (note.animation) {
+					try { note.animation.play(); } catch (e) {}
+				}
+			});
+		}
+
+		function openPauseDialog() {
+			if (onlineState.active) return;
+			if (!isRunning || isPaused) return;
+			isPaused = true;
+			pauseStartTime = audioContext.currentTime;
+			if (audioContext && audioContext.state === "running") {
+				audioContext.suspend();
+			}
+			pauseAllNoteAnimations();
+			document.getElementById('bg-video-element').pause();
+			document.getElementById('pause-dialog-overlay').style.display = 'flex';
+		}
+
+		function closePauseDialog() {
+			if (!isPaused) return;
+			document.getElementById('pause-dialog-overlay').style.display = 'none';
+			if (audioContext && audioContext.state === "suspended") {
+				audioContext.resume().then(() => {
+					// AudioContextの時計自体が停止/再開するため、停止時間の加算は不要（加算すると音とズレる）
+					isPaused = false;
+					resumeAllNoteAnimations();
+					if (bgVideoEnabled && bgVideoObjectUrl) {
+						document.getElementById('bg-video-element').play().catch(() => {});
+					}
+					lastLoopTime = performance.now();
+					animationFrameId = requestAnimationFrame(gameLoopUpdate);
+				});
+			} else {
+				isPaused = false;
+				resumeAllNoteAnimations();
+				if (bgVideoEnabled && bgVideoObjectUrl) {
+					document.getElementById('bg-video-element').play().catch(() => {});
+				}
+				lastLoopTime = performance.now();
+				animationFrameId = requestAnimationFrame(gameLoopUpdate);
+			}
+		}
+
+		function retryGameFromPause() {
+			if (onlineState.active) return;
+			document.getElementById('pause-dialog-overlay').style.display = 'none';
+			retryGame();
+		}
+
+		function exitToMenuFromPause() {
+			if (onlineState.active) return;
+			document.getElementById('pause-dialog-overlay').style.display = 'none';
+			backToMenu();
+		}
+
+		function checkGameOver() {
+			if (onlineState.active) return;
+			if (!isEditMode && currentHealth <= 0 && isRunning && !isPaused) {
+				triggerGameOver();
+			}
+		}
+
+		function triggerGameOver() {
+			if (!isRunning || isPaused) return;
+			isPaused = true;
+			pauseStartTime = audioContext.currentTime;
+			if (audioContext && audioContext.state === "running") {
+				audioContext.suspend();
+			}
+			pauseAllNoteAnimations();
+			document.getElementById('bg-video-element').pause();
+			document.getElementById('gameover-dialog-overlay').style.display = 'flex';
+		}
+
+		function retryGameFromGameOver() {
+			if (onlineState.active) return;
+			document.getElementById('gameover-dialog-overlay').style.display = 'none';
+			retryGame();
+		}
+
+		function exitToMenuFromGameOver() {
+			if (onlineState.active) return;
+			document.getElementById('gameover-dialog-overlay').style.display = 'none';
+			backToMenu();
+		}
+
+		function cleanAndStopAudio() {
+			isRunning = false;
+			isPaused = false;
+			cancelAnimationFrame(animationFrameId);
+			stopRecording();
+			syncBgVideoWithGame(false);
+			if (audioSource) {
+				try {
+					audioSource.stop();
+				} catch (e) {}
+				audioSource = null;
+			}
+			for (let i = 0; i < currentKeyMode; i++) {
+				const ln = laneElements[i];
+				if (ln) {
+					const notes = ln.querySelectorAll('.note');
+					notes.forEach(n => n.remove());
+				}
+			}
+		}
+
+		function retryGame() {
+			if (onlineState.active) return;
+			cleanAndStopAudio();
+			initiateGame(isEditMode);
+		}
+
+		function backToMenu() {
+			if (onlineState.active) { leaveOnlineMatch(); return; }
+			cleanAndStopAudio();
+			totalPausedDuration = 0;
+			document.getElementById('result-overlay').style.display = 'none';
+			document.getElementById('start-overlay').style.display = 'flex';
+			loadMusicListFromDB();
+		}
+
+		function exportChartToPassword(arr) {
+			if (arr.length === 0) return "000000";
+			let sum = 0;
+			arr.forEach(n => {
+				sum += (n.lane + 1) + Math.floor(n.spawnTime);
+			});
+			let codeNum = 100000 + (sum % 900000);
+			localStorage.setItem("ING_PWD_" + codeNum, JSON.stringify(arr));
+			return String(codeNum);
+		}
+
+		// --- 譜面ファイルのダウンロード／読み込み機能 ---
+
+		function downloadChartFile() {
+			if (!customCreatedChart || customCreatedChart.length === 0) {
+				alert("ダウンロードできる譜面データがありません。\nまずは譜面を作成（エディットモードでプレイ）してください。");
+				return;
+			}
+			const cleanName = removeMp3Extension(selectedFileName) || "untitled";
+			const payload = {
+				formatVersion: 1,
+				appType: "ING_CHART",
+				trackName: selectedFileName,
+				difficulty: currentDifficulty,
+				speedMultiplier: speedMultiplier,
+				createdAt: new Date().toISOString(),
+				chart: customCreatedChart
+			};
+			try {
+				const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+				const url = URL.createObjectURL(blob);
+				const a = document.createElement('a');
+				a.href = url;
+				a.download = cleanName + "_" + currentDifficulty + "_chart.json";
+				document.body.appendChild(a);
+				a.click();
+				document.body.removeChild(a);
+				setTimeout(() => URL.revokeObjectURL(url), 5000);
+			} catch (e) {
+				alert("譜面ファイルの書き出しに失敗しました。");
+			}
+		}
+
+		// 保存された自作譜面リストから、指定した譜面をファイル(.json)としてダウンロードする
+		function downloadSavedChartItem(id) {
+			try {
+				let savedList = JSON.parse(localStorage.getItem("ING_SAVED_CHARTS_LIST")) || [];
+				const item = savedList.find(n => n.id === id);
+				if (!item) {
+					alert("譜面データが見つかりません。");
+					return;
+				}
+				const dataStr = localStorage.getItem("ING_PWD_" + item.pwd);
+				if (!dataStr) {
+					alert("譜面データが見つかりません。");
+					return;
+				}
+				const arr = JSON.parse(dataStr);
+				const cleanName = removeMp3Extension(item.trackName || item.name || "untitled") || "untitled";
+				const payload = {
+					formatVersion: 1,
+					appType: "ING_CHART",
+					trackName: item.trackName || "",
+					chartName: item.name || "",
+					password: item.pwd,
+					createdAt: new Date().toISOString(),
+					chart: arr
+				};
+				const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+				const url = URL.createObjectURL(blob);
+				const a = document.createElement('a');
+				a.href = url;
+				a.download = cleanName + "_" + item.pwd + "_chart.json";
+				document.body.appendChild(a);
+				a.click();
+				document.body.removeChild(a);
+				setTimeout(() => URL.revokeObjectURL(url), 5000);
+			} catch (e) {
+				alert("譜面ファイルの書き出しに失敗しました。");
+			}
+		}
+
+		function loadChartFromFile(event) {
+			const file = event.target.files[0];
+			const nameDisp = document.getElementById('chart-file-name');
+			const errMsg = document.getElementById('pwd-error-msg');
+			if (errMsg) errMsg.textContent = "";
+			if (!file) return;
+
+			const reader = new FileReader();
+			reader.onload = (e) => {
+				try {
+					const data = JSON.parse(e.target.result);
+					let arr;
+					// 配列形式（旧パスワード形式）／オブジェクト形式（ダウンロード形式）どちらにも対応
+					if (Array.isArray(data)) {
+						arr = data;
+					} else if (data && Array.isArray(data.chart)) {
+						arr = data.chart;
+						if (data.difficulty) {
+							currentDifficulty = data.difficulty;
+							const sel = document.getElementById('difficulty-select');
+							if (sel) sel.value = data.difficulty;
+						}
+					} else {
+						throw new Error("invalid chart format");
+					}
+					if (arr.length === 0 || typeof arr[0].lane === "undefined" || typeof arr[0].spawnTime === "undefined") {
+						throw new Error("invalid note data");
+					}
+
+					window.originalChartBackup = JSON.parse(JSON.stringify(arr));
+					window.currentPlayChart = arr;
+					if (nameDisp) nameDisp.textContent = file.name;
+					alert("譜面ファイル「" + file.name + "」を読み込みました！\nこのままスタートすると読み込んだ譜面でプレイできます。");
+				} catch (err) {
+					if (nameDisp) nameDisp.textContent = "未選択";
+					if (errMsg) errMsg.textContent = "譜面ファイルの読み込みに失敗しました（形式が不正です）。";
+					else alert("譜面ファイルの読み込みに失敗しました（形式が不正です）。");
+				} finally {
+					event.target.value = "";
+				}
+			};
+			reader.onerror = () => {
+				if (errMsg) errMsg.textContent = "ファイルの読み込み中にエラーが発生しました。";
+			};
+			reader.readAsText(file);
+		}
+
+		function saveHighScoreToLocalStorage(trackName, score) {
+			if (!trackName) return;
+			try {
+				let recordMap = JSON.parse(localStorage.getItem("ING_HIGH_SCORES_MAP")) || {};
+				const key = trackName + " [" + currentDifficulty + "] [" + currentKeyMode + "K]";
+				const currentHigh = recordMap[key] || 0;
+				if (score > currentHigh) {
+					recordMap[key] = score;
+					localStorage.setItem("ING_HIGH_SCORES_MAP", JSON.stringify(recordMap));
+				}
+			} catch (e) {}
+		}
+
+		function parseScoreKey(key) {
+			// 末尾の "[6K]" / "[4K]" のようなキーモード表記を分離する。
+			// 古い保存データ（キーモード表記なし）は 4K 扱いとする。
+			const match = key.match(/\s\[(\d+)K\]$/i);
+			if (match) {
+				return { keyMode: match[1], displayKey: key.slice(0, match.index) };
+			}
+			return { keyMode: "4", displayKey: key };
+		}
+
+		function renderProfileHighScoreList() {
+			const field = document.getElementById("profile-score-field");
+			const clearAllBtn = document.getElementById("btn-clear-all-scores");
+			field.innerHTML = "";
+			try {
+				let recordMap = JSON.parse(localStorage.getItem("ING_HIGH_SCORES_MAP")) || {};
+				const keys = Object.keys(recordMap);
+				if (keys.length === 0) {
+					field.innerHTML = `<div style="color:#666; text-align:center; padding:10px; font-size:13px;">まだプレイ記録がありません。</div>`;
+					if (clearAllBtn) clearAllBtn.style.display = "none";
+					return;
+				}
+				if (clearAllBtn) clearAllBtn.style.display = "inline-block";
+
+				const groups = { "4": [], "6": [] };
+				keys.forEach(key => {
+					const { keyMode } = parseScoreKey(key);
+					if (!groups[keyMode]) groups[keyMode] = [];
+					groups[keyMode].push(key);
+				});
+
+				const groupOrder = ["4", "6"].concat(Object.keys(groups).filter(m => m !== "4" && m !== "6"));
+				let renderedAny = false;
+				groupOrder.forEach(mode => {
+					const groupKeys = groups[mode];
+					if (!groupKeys || groupKeys.length === 0) return;
+					renderedAny = true;
+
+					const sectionTitle = document.createElement("div");
+					sectionTitle.className = "profile-score-section-title";
+					sectionTitle.textContent = mode + " KEY";
+					field.appendChild(sectionTitle);
+
+					groupKeys.forEach(key => {
+						const item = document.createElement("div");
+						item.className = "profile-score-item";
+						const score = recordMap[key];
+						const { displayKey } = parseScoreKey(key);
+						const cleanKey = removeMp3Extension(displayKey);
+
+						item.innerHTML = `
+							<span class="profile-score-name" title="${cleanKey}">${cleanKey}</span>
+							<span class="profile-score-val">${String(score).padStart(8, '0')}</span>
+							<button class="small-del-btn" style="font-size:11px; padding:3px 8px; margin-left:8px;" onclick="deleteSingleHighScore('${key.replace(/'/g, "\\'")}')">削除</button>
+						`;
+						field.appendChild(item);
+					});
+				});
+				if (!renderedAny) {
+					field.innerHTML = `<div style="color:#666; text-align:center; padding:10px; font-size:13px;">まだプレイ記録がありません。</div>`;
+					if (clearAllBtn) clearAllBtn.style.display = "none";
+				}
+			} catch (e) {}
+		}
+
+		function deleteSingleHighScore(key) {
+			const { displayKey } = parseScoreKey(key);
+			if (!confirm("「" + removeMp3Extension(displayKey) + "」のスコアを削除しますか？")) return;
+			try {
+				let recordMap = JSON.parse(localStorage.getItem("ING_HIGH_SCORES_MAP")) || {};
+				delete recordMap[key];
+				localStorage.setItem("ING_HIGH_SCORES_MAP", JSON.stringify(recordMap));
+				renderProfileHighScoreList();
+			} catch (e) {}
+		}
+
+		function clearAllHighScores() {
+			if (!confirm("すべてのスコア記録を削除しますか？")) return;
+			try {
+				localStorage.removeItem("ING_HIGH_SCORES_MAP");
+				renderProfileHighScoreList();
+			} catch (e) {}
+		}
+
+			function toggleAutoMode() {
+				if (onlineState.active || !isRunning) return;
+				isAutoMode = !isAutoMode;
+				updateAutoButtonUI();
+			}
+
+			function updateAutoButtonUI() {
+				const btn = document.getElementById('auto-btn');
+				if (btn) {
+					btn.style.display = onlineState.active ? 'none' : 'inline-block';
+					if (isAutoMode) {
+						btn.textContent = 'AUTO: ON';
+						btn.style.background = '#ff1493';
+						btn.style.color = '#fff';
+					} else {
+						btn.textContent = 'AUTO: OFF';
+						btn.style.background = '#2a1a4a';
+						btn.style.color = '#fff';
+					}
+				}
+			}
+
+			function finishGameSession() {
+			isRunning=false; cancelAnimationFrame(animationFrameId);
+			const total=countPerfect+countGreat+countMiss;
+			const result={score:Math.round(currentScore),maxCombo,perfect:countPerfect,great:countGreat,miss:countMiss,accuracy:total>0?Number(((countPerfect+countGreat*.5)/total*100).toFixed(2)):100,finishedAt:Date.now()};
+			if(onlineState.active&&!isEditMode){ onlineState.localResult=result; onlineState.localFinished=true; onlineSend({t:"result",result}); ghUpdateRoom(r=>{r.status="results";r.results[onlineState.role]=result;return r;},`Aetheria result ${onlineState.roomCode}`).catch(()=>{}); onlineSetGameplayViewFinished(); checkOnlineBothFinished(); return; }
+			document.getElementById('res-score').textContent=String(result.score).padStart(8,'0'); document.getElementById('res-combo').textContent=maxCombo; document.getElementById('res-perfect').textContent=countPerfect; document.getElementById('res-great').textContent=countGreat; document.getElementById('res-miss').textContent=countMiss; document.getElementById('res-accuracy').textContent=result.accuracy.toFixed(2)+"%";
+			const fcBadge=document.getElementById('result-fc-badge'); if(fcBadge){fcBadge.className="";fcBadge.textContent="";if(total>0&&countMiss===0){if(countGreat===0){fcBadge.textContent="ALL PERFECT";fcBadge.className="show ap-type";}else{fcBadge.textContent="フルコン";fcBadge.className="show fc-type";}}}
+			const cleanName=removeMp3Extension(selectedFileName); document.getElementById('result-music-name').textContent=cleanName+" ["+currentDifficulty+"]"; let rank="C";if(currentScore>=8000000)rank="SS";else if(currentScore>=6000000)rank="S";else if(currentScore>=4000000)rank="A";else if(currentScore>=2000000)rank="B";const rankEl=document.getElementById('result-rank');rankEl.textContent=rank;rankEl.setAttribute('data-rank',rank);
+			if(isEditMode){const generatedPwd=exportChartToPassword(customCreatedChart);document.getElementById('result-pwd-output').textContent="🔑 "+generatedPwd;try{let savedList=JSON.parse(localStorage.getItem("ING_SAVED_CHARTS_LIST"))||[];const nextId=savedList.length?Math.max(...savedList.map(o=>o.id))+1:1;savedList.push({id:nextId,name:"自作譜面 #"+nextId,pwd:generatedPwd,trackName:selectedFileName});localStorage.setItem("ING_SAVED_CHARTS_LIST",JSON.stringify(savedList));}catch(e){}}else saveHighScoreToLocalStorage(selectedFileName,result.score);
+			document.getElementById('online-final-block').style.display='none';document.getElementById('result-overlay').style.display='flex';syncBgVideoWithGame(false);stopRecording();setTimeout(()=>{const b=document.getElementById('btn-save-mp4');if(b)b.style.display=recordedChunks.length?'inline-block':'none';},300);
+		}
+		function copyResultPasswordText() {
+			const fullTxt = document.getElementById('result-pwd-output').textContent;
+			const justCode = fullTxt.replace("🔑 ", "").trim();
+			navigator.clipboard.writeText(justCode).then(() => {
+				alert("パスワード「" + justCode + "」をクリップボードにコピーしました！");
+			}).catch(() => {
+				alert("コピーに失敗しました。手動で記録してください: " + justCode);
+			});
+		}
+
+		// --- 録画機能 ---
+		function startRecording() { /* legacy stub */ }
+
+		function startGameRecording() {
+			recordedChunks = [];
+			isRecording = false;
+			try {
+				// ゲームコンテナの映像+音声を録画
+				let streams = [];
+				// 音声ストリーム
+				if (audioContext) {
+					try {
+						const audioDest = audioContext.createMediaStreamDestination();
+						if (analyser) analyser.connect(audioDest);
+						audioDest.stream.getTracks().forEach(t => streams.push(t));
+					} catch(e) {}
+				}
+				if (streams.length === 0) {
+					// 音声なし → 録画なし
+					return;
+				}
+				const combinedStream = new MediaStream(streams);
+				const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+					? 'video/webm;codecs=vp9'
+					: 'video/webm';
+				mediaRecorder = new MediaRecorder(combinedStream, { mimeType });
+				mediaRecorder.ondataavailable = (e) => {
+					if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+				};
+				mediaRecorder.start(200);
+				isRecording = true;
+			} catch(e) {
+				console.warn("録画開始失敗:", e);
+			}
+		}
+
+		function stopRecording() {
+			isRecording = false;
+			if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+				mediaRecorder.stop();
+			}
+		}
+
+		function saveRecordingAsMp4() {
+			if (recordedChunks.length === 0) {
+				alert("録画データがありません。\n※ 音声トラックのキャプチャに対応していないブラウザでは録画できません。");
+				return;
+			}
+			const blob = new Blob(recordedChunks, { type: 'video/webm' });
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			const cleanName = removeMp3Extension(selectedFileName) || "play_ing";
+			a.href = url;
+			a.download = cleanName + "_" + currentDifficulty + ".webm";
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			setTimeout(() => URL.revokeObjectURL(url), 5000);
+		}
+
+		// --- 背景動画機能 ---
+
+		function toggleBgVideo() {
+			bgVideoEnabled = document.getElementById('bg-video-enabled').checked;
+			const videoEl = document.getElementById('bg-video-element');
+			if (bgVideoEnabled && bgVideoObjectUrl) {
+				videoEl.style.display = 'block';
+				// ゲーム中なら再生、メニュー中はプレビューなし
+				if (isRunning && !isPaused) {
+					videoEl.play().catch(() => {});
+				}
+			} else {
+				videoEl.style.display = 'none';
+				videoEl.pause();
+			}
+		}
+
+		function clearBgVideo() {
+			const videoEl = document.getElementById('bg-video-element');
+			videoEl.style.display = 'none';
+			videoEl.src = '';
+			videoEl.pause();
+			if (bgVideoObjectUrl) URL.revokeObjectURL(bgVideoObjectUrl);
+			bgVideoObjectUrl = null;
+			bgVideoEnabled = false;
+			document.getElementById('bg-video-enabled').checked = false;
+			document.getElementById('bg-video-name').textContent = "未選択";
+		}
+
+		// ゲーム開始時に背景動画を再生、終了時に停止・非表示
+		function syncBgVideoWithGame(start) {
+			const videoEl = document.getElementById('bg-video-element');
+			if (start) {
+				if (bgVideoEnabled && bgVideoObjectUrl) {
+					videoEl.style.display = 'block';
+					videoEl.currentTime = 0;
+					videoEl.play().catch(() => {});
+				}
+			} else {
+				videoEl.style.display = 'none';
+				videoEl.pause();
+				videoEl.currentTime = 0;
+			}
+		}
+// ================= 音声同期・低遅延・音声付きDL（追加コード） =================
+const LONG_Y_OFFSET = 30;          // ロング頭の下端をノーマルノーツの下端と同じ位置に揃える
+const AUDIO_DL_BITRATE = 64000;    // 譜面DL時に同梱する音声のビットレート(bps)。小さいほど軽量
+const ONSET_CAL_MS = 0;
+
+function getFallMs() { return (yTarget - ySpawn) / velocity; }
+
+// perfTs(performance.now基準)の瞬間に「実際に聞こえている」曲位置(ms)。
+// getOutputTimestampで出力デバイス遅延込みの音声時計に換算するため、入力/描画/音が一致する
+function getSongTimeMs(perfTs) {
+	const ctx = audioContext, nowP = performance.now();
+	let p = perfTs;
+	if (!(p > 0) || p > nowP + 1 || nowP - p > 250) p = nowP;
+	const ts = ctx.getOutputTimestamp ? ctx.getOutputTimestamp() : null;
+	const ct = (ts && ts.performanceTime > 0 && ts.contextTime > 0)
+		? ts.contextTime + (p - ts.performanceTime) / 1000
+		: ctx.currentTime - (ctx.outputLatency || ctx.baseLatency || 0) - (nowP - p) / 1000;
+	return (ct - gameStartTime) * 1000;
+}
+
+// --- 音声解析：オンセット(音の立ち上がり)検出。デコード済みバッファそのものを解析するので音声と必ず一致 ---
+const _onsetCache = new WeakMap();
+function getOnsets(buf) {
+	if (_onsetCache.has(buf)) return _onsetCache.get(buf);
+	const sr = buf.sampleRate, hop = 256, win = 512, chs = [];
+	for (let c = 0; c < buf.numberOfChannels; c++) chs.push(buf.getChannelData(c));
+	const n = Math.max(0, Math.floor((buf.length - win) / hop)), L = new Float32Array(n);
+	for (let f = 0; f < n; f++) {
+		let e = 0; const s0 = f * hop;
+		for (const d of chs) { let p = d[s0]; for (let i = 1; i < win; i++) { const x = d[s0 + i], y = x - 0.97 * p; p = x; e += y * y; } }
+		L[f] = Math.log(1 + 2000 * e / (win * chs.length));
+	}
+	const fl = new Float32Array(n), pre = new Float64Array(n + 1);
+	for (let f = 2; f < n; f++) fl[f] = Math.max(0, L[f] - L[f - 2]);
+	for (let f = 0; f < n; f++) pre[f + 1] = pre[f] + fl[f];
+	const R = Math.round(0.03 * sr / hop), W = Math.round(0.25 * sr / hop), out = [];
+	for (let f = R; f < n - R; f++) {
+		const v = fl[f]; if (v <= 0) continue;
+		let ok = true;
+		for (let k = f - R; k <= f + R; k++) if (fl[k] > v || (fl[k] === v && k < f)) { ok = false; break; }
+		if (!ok) continue;
+		const a = Math.max(0, f - W), b = Math.min(n, f + W + 1), mean = (pre[b] - pre[a]) / (b - a);
+		if (v > mean * 1.25 + 0.12) out.push({ t: (f * hop + hop / 2) / sr * 1000 + ONSET_CAL_MS, s: v });
+	}
+	_onsetCache.set(buf, out);
+	return out;
+}
+
+// エディット録画：叩いた位置を最寄りのオンセットへ吸着（±90ms）
+function snapToOnset(t) {
+	if (!audioBuffer) return t;
+	let best = t, bd = 90;
+	for (const o of getOnsets(audioBuffer)) { const d = Math.abs(o.t - t); if (d < bd) { bd = d; best = o.t; } }
+	return best;
+}
+
+function createLocalSeededRandom(seed){ let h=0; seed=String(seed); for(let i=0;i<seed.length;i++){h=((h<<5)-h)+seed.charCodeAt(i);h|=0;} let n=Math.abs(h)+1; return ()=>{const x=Math.sin(n++)*10000;return x-Math.floor(x);}; }
+
+// 音声のオンセットに合わせて譜面を自動生成（難易度・トリル・同時押し・ロングの設定は従来のまま）
+function generateChartFromAudio(buf, diff, keyMode = currentKeyMode, seedOverride = "", speedOverride = speedMultiplier) {
+	const cfg = DIFFICULTY_SETTINGS[diff] || DIFFICULTY_SETTINGS.NORMAL, fall = (yTarget - ySpawn) / (0.12 * (speedOverride || 3.8)), acc = [];
+	const localRnd = seedOverride ? createLocalSeededRandom(seedOverride) : seededRandom;
+	getOnsets(buf).slice().sort((a, b) => b.s - a.s).forEach(o => {
+		if (acc.every(a => Math.abs(a - o.t) >= cfg.spawnInterval)) acc.push(o.t);
+	});
+	const times = acc.sort((a, b) => a - b), N = keyMode, free = [], chart = [];
+	let TL = -1, TR = -1, leftTurn = true;
+	times.forEach(t => {
+		const pool = [];
+		for (let i = 0; i < N; i++) if (t >= (free[i] || 0)) pool.push(i);
+		if (!pool.length) return;
+		const lanes = [];
+		if (localRnd() < cfg.trillChance && pool.length >= 2) {
+			if (TL !== -1 && pool.includes(TL) && pool.includes(TR)) { lanes.push(leftTurn ? TL : TR); leftTurn = !leftTurn; }
+			else {
+				const a = pool.splice(Math.floor(localRnd() * pool.length), 1)[0];
+				TL = a; TR = pool[Math.floor(localRnd() * pool.length)]; leftTurn = true; lanes.push(a);
+			}
+		} else {
+			let count = 1; const r = localRnd();
+			if (r < cfg.tripleChance) count = 3;
+			else if (r < cfg.tripleChance + cfg.doubleChance) count = 2;
+			for (let c = 0; c < count && pool.length; c++) lanes.push(pool.splice(Math.floor(localRnd() * pool.length), 1)[0]);
+		}
+		let dur = 0;
+		if (localRnd() < cfg.longNoteChance) {   // ロングの終点も次のオンセットに合わせる
+			const end = times.find(u => u - t >= 400);
+			if (end !== undefined && end - t <= 2000) dur = end - t;
+		}
+		lanes.forEach(l => {
+			chart.push({ lane: l, type: dur ? 'long' : 'normal', spawnTime: t - fall, expectTime: t, duration: dur });
+			free[l] = t + dur + (dur ? 120 : 140);
+		});
+	});
+	return chart;
+}
+
+// --- 譜面DL時に音声も一緒に保存（Opus 64kbpsへ圧縮。元より小さい場合のみ差し替え） ---
+function triggerDownload(blob, name) {
+	const url = URL.createObjectURL(blob), a = document.createElement('a');
+	a.href = url; a.download = name; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+	setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+async function encodeOggOpus(buf) {
+	if (!window.AudioEncoder || !window.AudioData) return null;
+	const SR = 48000, ch = Math.min(2, buf.numberOfChannels);
+	let src = buf;
+	if (buf.sampleRate !== SR) {
+		const oc = new OfflineAudioContext(ch, Math.ceil(buf.duration * SR), SR);
+		const s = oc.createBufferSource(); s.buffer = buf; s.connect(oc.destination); s.start();
+		src = await oc.startRendering();
+	}
+	const cfg = { codec: 'opus', sampleRate: SR, numberOfChannels: ch, bitrate: AUDIO_DL_BITRATE };
+	if (!(await AudioEncoder.isConfigSupported(cfg)).supported) return null;
+	const packets = []; let preSkip = 312, err = null;
+	const enc = new AudioEncoder({
+		output: (c, m) => {
+			const d = m && m.decoderConfig && m.decoderConfig.description;
+			if (!packets.length && d) { const u = d instanceof ArrayBuffer ? new Uint8Array(d) : new Uint8Array(d.buffer, d.byteOffset, d.byteLength); if (u.length >= 12) preSkip = u[10] | (u[11] << 8); }
+			const u8 = new Uint8Array(c.byteLength); c.copyTo(u8);
+			packets.push({ d: u8, n: Math.round(c.duration * SR / 1e6) });
+		},
+		error: e => { err = e; }
+	});
+	enc.configure(cfg);
+	for (let i = 0; i < src.length; i += SR) {
+		const n = Math.min(SR, src.length - i), data = new Float32Array(n * ch);
+		for (let c = 0; c < ch; c++) data.set(src.getChannelData(c).subarray(i, i + n), c * n);
+		const ad = new AudioData({ format: 'f32-planar', sampleRate: SR, numberOfFrames: n, numberOfChannels: ch, timestamp: Math.round(i * 1e6 / SR), data });
+		enc.encode(ad); ad.close();
+		if (err) throw err;
+		while (enc.encodeQueueSize > 4) await new Promise(r => setTimeout(r, 0));
+	}
+	await enc.flush(); enc.close();
+	if (err) throw err;
+	return buildOggOpus(packets, preSkip, ch, SR, src.length);
+}
+
+// Ogg Opus 書き出し。pre-skipと最終granuleを正確に設定し、再デコード時も音声の頭・長さが元とずれない
+function buildOggOpus(packets, preSkip, ch, SR, totalFrames) {
+	const T = new Uint32Array(256);
+	for (let i = 0; i < 256; i++) { let r = i << 24; for (let j = 0; j < 8; j++) r = (r & 0x80000000) ? ((r << 1) ^ 0x04C11DB7) >>> 0 : (r << 1) >>> 0; T[i] = r >>> 0; }
+	const pages = []; let seq = 0;
+	const page = (type, gran, pk) => {
+		const segs = []; pk.forEach(p => { let l = p.length; while (l >= 255) { segs.push(255); l -= 255; } segs.push(l); });
+		const o = new Uint8Array(27 + segs.length + pk.reduce((a, p) => a + p.length, 0)), dv = new DataView(o.buffer);
+		o.set([79, 103, 103, 83, 0, type]);
+		dv.setUint32(6, gran % 4294967296, true); dv.setUint32(10, Math.floor(gran / 4294967296), true);
+		dv.setUint32(14, 0x1A2B3C4D, true); dv.setUint32(18, seq++, true); o[26] = segs.length; o.set(segs, 27);
+		let off = 27 + segs.length; pk.forEach(p => { o.set(p, off); off += p.length; });
+		let crc = 0; for (let i = 0; i < o.length; i++) crc = ((crc << 8) ^ T[((crc >>> 24) ^ o[i]) & 255]) >>> 0;
+		dv.setUint32(22, crc, true); pages.push(o);
+	};
+	const head = new Uint8Array(19); head.set([79, 112, 117, 115, 72, 101, 97, 100, 1, ch, preSkip & 255, preSkip >> 8]);
+	new DataView(head.buffer).setUint32(12, SR, true);
+	const tags = new Uint8Array(19); tags.set([79, 112, 117, 115, 84, 97, 103, 115, 3, 0, 0, 0, 105, 110, 103]);
+	page(2, 0, [head]); page(0, 0, [tags]);
+	let cur = [], segCnt = 0, gran = 0;
+	const lastGran = preSkip + totalFrames;
+	for (let i = 0; i < packets.length; i++) {
+		const p = packets[i], sc = Math.floor(p.d.length / 255) + 1;
+		if (cur.length && (segCnt + sc > 250 || cur.length >= 50)) { page(0, gran, cur); cur = []; segCnt = 0; }
+		cur.push(p.d); segCnt += sc; gran += p.n;
+	}
+	page(4, Math.min(gran, lastGran), cur);
+	return new Blob(pages, { type: 'audio/ogg' });
+}
+
+async function downloadTrackAudio(id, name) {
+	try {
+		const rec = await new Promise(res => {
+			const st = db.transaction(["tracks"]).objectStore("tracks");
+			if (id != null) { const q = st.get(id); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); return; }
+			const q = st.openCursor();
+			q.onsuccess = () => { const c = q.result; if (!c) return res(null); if (c.value.name === name) return res(c.value); c.continue(); };
+			q.onerror = () => res(null);
+		});
+		if (!rec) return;
+		let blob = new Blob([rec.data]), fname = rec.name;
+		try {
+			const buf = decodedAudioCache[rec.id] || await audioContext.decodeAudioData(rec.data.slice(0));
+			const ogg = await encodeOggOpus(buf);
+			if (ogg && ogg.size < blob.size) { blob = ogg; fname = rec.name.replace(/\.[^.]+$/, '') + '.ogg'; }
+		} catch (e) { console.warn('音声の圧縮に失敗。元ファイルを保存します', e); }
+		triggerDownload(blob, fname);
+	} catch (e) { console.warn(e); }
+}
+
+// 既存の譜面DLボタンはそのまま、押すと音声も続けて保存される
+const _dlChartOrig = downloadChartFile;
+downloadChartFile = function () {
+	const ok = customCreatedChart && customCreatedChart.length;
+	_dlChartOrig();
+	if (ok) setTimeout(() => downloadTrackAudio(selectedFileId, selectedFileName), 500);
+};
+const _dlSavedOrig = downloadSavedChartItem;
+downloadSavedChartItem = function (id) {
+	_dlSavedOrig(id);
+	try {
+		const it = (JSON.parse(localStorage.getItem("ING_SAVED_CHARTS_LIST")) || []).find(n => n.id === id);
+		if (it && it.trackName) setTimeout(() => downloadTrackAudio(it.trackName === selectedFileName ? selectedFileId : null, it.trackName), 500);
+	} catch (e) {}
+};
+
+			
+
+		// ================= ONLINE SYSTEM =================
+		function escapeHtml(v){return String(v==null?"":v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+		function loadProfileName(){profileName=localStorage.getItem("ING_PROFILE_NAME")||"Player";const i=document.getElementById("profile-name-input");if(i)i.value=profileName;refreshOnlineUi();}
+		function saveProfileName(){const i=document.getElementById("profile-name-input");profileName=((i?.value||profileName).trim().replace(/\s+/g," ").slice(0,16)||"Player");localStorage.setItem("ING_PROFILE_NAME",profileName);if(i)i.value=profileName;refreshOnlineUi();}
+		function openRatePanel(){const el=document.getElementById("rate-panel-layer");if(el)el.style.display="flex";const v=document.getElementById("rate-value-main");if(v)v.textContent=`${onlineRate} / ${ONLINE_RATE_MAX}`;}
+		function closeRatePanel(){const el=document.getElementById("rate-panel-layer");if(el)el.style.display="none";}
+		function changeOnlineRate(delta){onlineRate=Math.max(0,Math.min(ONLINE_RATE_MAX,onlineRate+delta));localStorage.setItem("ING_ONLINE_RATE",String(onlineRate));const v=document.getElementById("rate-value-main");if(v)v.textContent=`${onlineRate} / ${ONLINE_RATE_MAX}`;}
+		function refreshOnlineUi(){updateAutoButtonUI();const v=document.getElementById("rate-value-main");if(v)v.textContent=`${onlineRate} / ${ONLINE_RATE_MAX}`;const st=document.getElementById("online-status-text");if(st)st.textContent=onlineState.active?(onlineState.connected?`対戦中 / ${profileName}`:"接続中…"):`RATE ${onlineRate}`;const ms=document.getElementById("online-modal-status");if(ms)ms.innerHTML=onlineState.active?`<strong>${escapeHtml(onlineState.roomCode)}</strong> / ${escapeHtml(onlineState.remoteName||"相手待ち")} / ${onlineState.connected?"接続済み":"接続待ち"}`:"対戦状態: オフライン";const a=document.getElementById("online-host-track"),b=document.getElementById("online-join-track");if(a)a.textContent=removeMp3Extension(selectedFileName)||"未選択";if(b)b.textContent=removeMp3Extension(selectedFileName)||"未選択";const d=document.getElementById("online-host-difficulty");if(d)d.textContent=currentDifficulty;const p=document.getElementById("pause-btn");if(p)p.style.display=onlineState.active?"none":"inline-block";}
+		function loadGitHubConfigToUI(){try{onlineGitHubConfig=JSON.parse(localStorage.getItem("ING_GITHUB_CONFIG")||"{}")}catch(e){onlineGitHubConfig={};}const map={owner:"github-owner",repo:"github-repo",branch:"github-branch",token:"github-token"};for(const k of Object.keys(map)){const el=document.getElementById(map[k]);if(el)el.value=onlineGitHubConfig[k]||(k==='branch'?'main':'');}const st=document.getElementById("github-status");if(st)st.textContent=onlineGitHubConfig.owner&&onlineGitHubConfig.repo&&onlineGitHubConfig.token?"設定済み":"未設定";}
+		function saveGitHubConfigFromUI(showAlert=true){const c={owner:(document.getElementById("github-owner")?.value||"").trim(),repo:(document.getElementById("github-repo")?.value||"").trim(),branch:(document.getElementById("github-branch")?.value||"main").trim()||"main",token:(document.getElementById("github-token")?.value||"").trim()};if(!c.owner||!c.repo||!c.token){const st=document.getElementById("github-status");if(st)st.textContent="Owner / Repository / Token を設定してください";return false;}onlineGitHubConfig=c;localStorage.setItem("ING_GITHUB_CONFIG",JSON.stringify(c));const st=document.getElementById("github-status");if(st)st.textContent="設定を保存しました";if(showAlert)alert("GitHub設定を保存しました。");return true;}
+		function requireGitHubConfig(){return onlineGitHubConfig.owner&&onlineGitHubConfig.repo&&onlineGitHubConfig.token?true:saveGitHubConfigFromUI(false);}
+		function ghApiUrl(path){return `https://api.github.com/repos/${encodeURIComponent(onlineGitHubConfig.owner)}/${encodeURIComponent(onlineGitHubConfig.repo)}/contents/${path.split('/').map(encodeURIComponent).join('/')}`;}
+		function githubHeaders(extra={}){return Object.assign({"Accept":"application/vnd.github+json","Authorization":`Bearer ${onlineGitHubConfig.token}`,"X-GitHub-Api-Version":"2022-11-28"},extra);}
+		function bytesToBase64(bytes){let bin="";for(let i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode(...bytes.subarray(i,i+0x8000));return btoa(bin);}
+		function base64ToBytes(str){const bin=atob(str.replace(/\n/g,"")),out=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)out[i]=bin.charCodeAt(i);return out;}
+		async function sha256Hex(v){const h=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(v));return Array.from(new Uint8Array(h)).map(x=>x.toString(16).padStart(2,'0')).join('');}
+		async function ghReadJson(path,optional=false){const r=await fetch(ghApiUrl(path),{headers:githubHeaders(),cache:"no-store"});if(r.status===404&&optional)return null;if(!r.ok)throw new Error(`GitHub GET ${r.status}`);const o=await r.json();return{json:JSON.parse(new TextDecoder().decode(base64ToBytes(o.content))),sha:o.sha};}
+		async function ghWriteJson(path,json,message,sha=null){const body={message,content:bytesToBase64(new TextEncoder().encode(JSON.stringify(json,null,2))),branch:onlineGitHubConfig.branch};if(sha)body.sha=sha;const r=await fetch(ghApiUrl(path),{method:"PUT",headers:githubHeaders({"Content-Type":"application/json"}),body:JSON.stringify(body)});if(r.status===409)throw new Error("GITHUB_CONFLICT");if(!r.ok)throw new Error(`GitHub PUT ${r.status}`);return r.json();}
+		async function ghUpdateRoom(mutator,message){const path=`aetheria-rooms/${onlineState.roomCode}.json`;for(let i=0;i<4;i++){const c=await ghReadJson(path,false),n=JSON.parse(JSON.stringify(c.json));await mutator(n);try{await ghWriteJson(path,n,message,c.sha);onlineState.room=n;return n;}catch(e){if(e.message!=="GITHUB_CONFLICT")throw e;}}throw new Error("ROOM_UPDATE_CONFLICT");}
+		function createRoomCode(){const c="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";const a=new Uint32Array(6);crypto.getRandomValues(a);return Array.from(a,x=>c[x%c.length]).join('');}
+		async function testGitHubConnection(){if(!saveGitHubConfigFromUI(false))return;const st=document.getElementById("github-status");if(st)st.textContent="接続テスト中…";try{const r=await fetch(`https://api.github.com/repos/${encodeURIComponent(onlineGitHubConfig.owner)}/${encodeURIComponent(onlineGitHubConfig.repo)}`,{headers:githubHeaders(),cache:"no-store"});if(!r.ok)throw new Error(`HTTP ${r.status}`);const d=await r.json();if(st)st.textContent=`接続OK: ${d.full_name}`;}catch(e){if(st)st.textContent=`接続失敗: ${e.message}`;}}
+		function openOnlineModal(){loadGitHubConfigToUI();refreshOnlineUi();const el=document.getElementById("online-modal-layer");if(el)el.style.display="flex";}
+		function closeOnlineModal(){if(onlineState.active)return;const el=document.getElementById("online-modal-layer");if(el)el.style.display="none";}
+		function setOnlineStatusText(msg){const ms=document.getElementById("online-modal-status");if(ms)ms.innerHTML=msg;const st=document.getElementById("online-status-text");if(st)st.textContent=String(msg).replace(/<[^>]*>/g,'').slice(0,42);}
+		function requireLocalTrackForOnline(){if(!audioBuffer||!selectedFileId){alert("オンライン対戦では、自分の曲を1曲選択して読み込んでください。");return false;}return true;}
+		function roomPlayerPayload(){return{id:onlinePlayerId,name:profileName,track:{id:selectedFileId,name:selectedFileName},difficulty:currentDifficulty,keyMode:currentKeyMode,speed:speedMultiplier,ready:true};}
+		async function createOnlineRoom(){if(!requireLocalTrackForOnline()||!requireGitHubConfig())return;const pwd=(document.getElementById("online-host-password")?.value||"").trim();if(pwd.length<4||pwd.length>12){alert("パスワードは4～12文字で入力してください。");return;}const code=createRoomCode(),hash=await sha256Hex(pwd),room={protocol:ONLINE_PROTOCOL_VERSION,roomCode:code,passwordHash:hash,createdAt:Date.now(),status:"waiting",round:0,host:roomPlayerPayload(),guest:null,selectedOwner:null,selectedTrack:null,startAtEpoch:null,offer:null,answer:null,results:{},rematch:{host:false,guest:false}};try{onlineState.active=true;onlineState.localOriginalSelection={id:selectedFileId,name:selectedFileName,buffer:audioBuffer};onlineState.role="host";onlineState.roomCode=code;onlineState.roomPassword=pwd;onlineState.room=room;await ghWriteJson(`aetheria-rooms/${code}.json`,room,`Aetheria room ${code}`);const box=document.getElementById("online-host-room");if(box){box.style.display="block";box.innerHTML=`<div>部屋コード</div><div class="online-room-code">${code}</div><div>パスワード</div><div class="online-room-pwd">${escapeHtml(pwd)}</div><div style="margin-top:8px;">相手の参加待ちです。2人が揃うと自動で開始準備に入ります。</div>`;}setOnlineStatusText(`募集開始: ${code}`);refreshOnlineUi();startOnlinePolling();}catch(e){resetOnlineState();alert(`募集作成に失敗しました。\n${e.message}`);}}
+		async function joinOnlineRoom(){if(!requireLocalTrackForOnline()||!requireGitHubConfig())return;const code=(document.getElementById("online-join-code")?.value||"").trim().toUpperCase(),pwd=(document.getElementById("online-join-password")?.value||"").trim();if(!code||!pwd){alert("部屋コードとパスワードを入力してください。");return;}try{const loaded=await ghReadJson(`aetheria-rooms/${code}.json`,true);if(!loaded)throw new Error("部屋が見つかりません。");if(loaded.json.protocol!==ONLINE_PROTOCOL_VERSION)throw new Error("互換性のない部屋です。");if(await sha256Hex(pwd)!==loaded.json.passwordHash)throw new Error("パスワードが違います。");if(loaded.json.guest&&loaded.json.guest.id!==onlinePlayerId)throw new Error("この部屋はすでに満員です。");onlineState.active=true;onlineState.localOriginalSelection={id:selectedFileId,name:selectedFileName,buffer:audioBuffer};onlineState.role="guest";onlineState.roomCode=code;onlineState.roomPassword=pwd;onlineState.room=loaded.json;await ghUpdateRoom(r=>{r.guest=roomPlayerPayload();r.status="ready";return r;},`Aetheria join ${code}`);startOnlinePolling();document.getElementById("online-modal-layer").style.display="none";}catch(e){resetOnlineState();alert(`参加に失敗しました。\n${e.message}`);}}
+		function startOnlinePolling(){if(onlineState.pollTimer)clearInterval(onlineState.pollTimer);onlineState.pollTimer=setInterval(pollOnlineRoom,ONLINE_POLL_MS);pollOnlineRoom();}
+		async function pollOnlineRoom(){if(!onlineState.active||onlineState.pollBusy)return;onlineState.pollBusy=true;try{const loaded=await ghReadJson(`aetheria-rooms/${onlineState.roomCode}.json`,true);if(!loaded){setOnlineStatusText('部屋が削除されました');return;}const room=loaded.json;onlineState.room=room;const opp=onlineState.role==='host'?room.guest:room.host;if(opp){onlineState.remoteName=opp.name||'相手';onlineState.remoteDifficulty=opp.difficulty||'NORMAL';onlineState.remoteKeyMode=opp.keyMode||4;onlineState.remoteSpeed=opp.speed||3.8;}refreshOnlineUi();if(room.round>onlineState.matchRound&&room.status!=='waiting'){onlineState.matchRound=room.round;onlineState.currentMatchId=room.selectedTrack?onlineState.currentMatchId:'';resetOnlineRoundState();}if(opp&&!onlineState.signalingStarted)startOnlineSignaling();if(onlineState.role==='host'&&onlineState.pc&&room.answer&&!onlineState.pc.currentRemoteDescription){try{await onlineState.pc.setRemoteDescription(room.answer);}catch(e){}}if(onlineState.role==='guest'&&onlineState.pc&&room.offer&&!onlineState.pc.currentRemoteDescription){try{await onlineState.pc.setRemoteDescription(room.offer);const ans=await onlineState.pc.createAnswer();await onlineState.pc.setLocalDescription(ans);await waitIceComplete(onlineState.pc);const d=onlineState.pc.localDescription;await ghUpdateRoom(r=>{r.answer={type:d.type,sdp:d.sdp};return r;},`Aetheria answer ${onlineState.roomCode}`);}catch(e){}}if(room.startAtEpoch&&onlineState.sharedAudioReady&&onlineState.localAudioReady&&!isRunning&&!onlineState.resultShown)await maybeStartOnlineGame(room.startAtEpoch);if(room.status==='results'&&room.results){const key=onlineState.role==='host'?'guest':'host';if(room.results[key])onlineState.remoteResult=room.results[key];if(onlineState.localFinished)checkOnlineBothFinished();}if(room.status==='results'&&room.rematch){onlineState.rematchSelf=!!room.rematch[onlineState.role];onlineState.rematchRemote=!!room.rematch[onlineState.role==='host'?'guest':'host'];}}catch(e){setOnlineStatusText(`同期エラー: ${e.message}`);}finally{onlineState.pollBusy=false;}}
+		async function startOnlineSignaling(){if(onlineState.signalingStarted||!onlineState.active||!onlineState.room?.guest||!onlineState.room?.host||!window.RTCPeerConnection){setOnlineStatusText(window.RTCPeerConnection?'':'このブラウザはWebRTCに対応していません。');return;}onlineState.signalingStarted=true;try{onlineState.pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]});const pc=onlineState.pc;pc.onconnectionstatechange=()=>{onlineState.connected=pc.connectionState==='connected';refreshOnlineUi();};pc.ondatachannel=e=>setupOnlineDataChannel(e.channel);if(onlineState.role==='host'){const dc=pc.createDataChannel('aetheria',{ordered:true});setupOnlineDataChannel(dc);const offer=await pc.createOffer();await pc.setLocalDescription(offer);await waitIceComplete(pc);const d=pc.localDescription;await ghUpdateRoom(r=>{r.offer={type:d.type,sdp:d.sdp};return r;},`Aetheria offer ${onlineState.roomCode}`);}else if(onlineState.room.offer){await pc.setRemoteDescription(onlineState.room.offer);const ans=await pc.createAnswer();await pc.setLocalDescription(ans);await waitIceComplete(pc);const d=pc.localDescription;await ghUpdateRoom(r=>{r.answer={type:d.type,sdp:d.sdp};return r;},`Aetheria answer ${onlineState.roomCode}`);}}catch(e){onlineState.signalingStarted=false;setOnlineStatusText(`P2P開始失敗: ${e.message}`);}}
+		async function waitIceComplete(pc){if(pc.iceGatheringState==='complete')return;await new Promise(resolve=>{const to=setTimeout(()=>{pc.removeEventListener('icegatheringstatechange',on);resolve();},6000),on=()=>{if(pc.iceGatheringState==='complete'){clearTimeout(to);pc.removeEventListener('icegatheringstatechange',on);resolve();}};pc.addEventListener('icegatheringstatechange',on);});}
+		function setupOnlineDataChannel(dc){onlineState.dc=dc;dc.binaryType='arraybuffer';dc.onopen=()=>{onlineState.connected=true;onlineSend({t:'hello',id:onlinePlayerId,name:profileName,difficulty:currentDifficulty,keyMode:currentKeyMode,speed:speedMultiplier,track:{id:selectedFileId,name:selectedFileName}});if(onlineState.role==='host')setTimeout(()=>prepareOnlineMatchFromHost(onlineState.room),400);refreshOnlineUi();};dc.onmessage=e=>handleOnlineMessage(e.data);dc.onclose=()=>{onlineState.connected=false;if(onlineState.active)setOnlineStatusText('相手との接続が切れました。');refreshOnlineUi();};dc.onerror=()=>setOnlineStatusText('P2P通信エラー');}
+		function onlineSend(obj){if(onlineState.dc?.readyState==='open')try{onlineState.dc.send(JSON.stringify(obj));}catch(e){}}
+		async function prepareOnlineMatchFromHost(room){if(!onlineState.active||onlineState.role!=='host'||!room?.guest||onlineState.currentMatchId||onlineState.matchPreparing||!onlineState.connected)return;onlineState.matchPreparing=true;const owner=Math.random()<.5?'host':'guest',source=owner==='host'?room.host:room.guest,matchId=`${onlineState.roomCode}-${(room.round||0)+1}-${Date.now()}`;try{const nr=await ghUpdateRoom(r=>{r.status='preparing';r.selectedOwner=owner;r.selectedTrack={...source.track};r.round=(r.round||0)+1;r.startAtEpoch=null;r.results={};r.rematch={host:false,guest:false};return r;},`Aetheria match ${matchId}`);onlineState.matchRound=nr.round;onlineState.currentMatchId=matchId;onlineState.selectedOwner=owner;onlineState.selectedTrackKey=`${owner}:${source.track.id}:${source.track.name}`;onlineState.sharedTrackName=source.track.name;onlineState.sharedAudioReady=false;onlineState.localAudioReady=false;onlineState.remoteAudioReady=false;onlineState.resultShown=false;onlineState.localFinished=false;onlineState.remoteFinished=false;onlineState.localResult=null;onlineState.remoteResult=null;onlineSend({t:'match',round:nr.round,matchId,selectedOwner:owner,selectedTrack:source.track});await prepareOnlineSelectedAudio();onlineState.matchPreparing=false;}catch(e){onlineState.matchPreparing=false;setOnlineStatusText(`対戦準備失敗: ${e.message}`);}}
+		async function handleOnlineMessage(raw){if(typeof raw==='string'){let m;try{m=JSON.parse(raw);}catch(e){return;}if(m.t==='hello'){onlineState.remoteName=m.name||'相手';onlineState.remoteDifficulty=m.difficulty||'NORMAL';onlineState.remoteKeyMode=m.keyMode||4;onlineState.remoteSpeed=m.speed||3.8;onlineState.opponentChartGenerated=false;onlineSend({t:'helloAck'});if(onlineState.role==='host'){onlineState.clockSyncSentAt=Date.now();onlineSend({t:'sync-ping',t0:onlineState.clockSyncSentAt});}return;}if(m.t==='sync-ping'){onlineSend({t:'sync-pong',t0:Number(m.t0)||Date.now(),t1:Date.now()});return;}if(m.t==='sync-pong'&&onlineState.role==='host'){const t2=Date.now(),t0=Number(m.t0)||t2,t1=Number(m.t1)||t2;onlineState.clockOffsetMs=((t1+t2)/2)-t0;onlineSend({t:'sync-offset',offsetMs:onlineState.clockOffsetMs});return;}if(m.t==='sync-offset'){onlineState.clockOffsetMs=Number(m.offsetMs)||0;return;}if(m.t==='match'){onlineState.matchRound=m.round;onlineState.currentMatchId=m.matchId||'';onlineState.selectedOwner=m.selectedOwner;onlineState.sharedTrackName=m.selectedTrack?.name||'untitled';onlineState.selectedTrackKey=`${m.selectedOwner}:${m.selectedTrack?.id}:${m.selectedTrack?.name}`;onlineState.sharedAudioReady=false;onlineState.localAudioReady=false;onlineState.remoteAudioReady=false;await prepareOnlineSelectedAudio();return;}if(m.t==='audio-meta'){onlineState.incomingAudio={name:m.name||'remote-audio',mime:m.mime||'audio/*',size:m.size||0,chunks:[],bytes:0};return;}if(m.t==='audio-end'){await finishIncomingOnlineAudio();return;}if(m.t==='audio-ready'){onlineState.remoteAudioReady=true;if(onlineState.role==='host')maybeMarkOnlineAudioReady();return;}if(m.t==='start'){await maybeStartOnlineGame(Number(m.startAtEpoch));return;}if(m.t==='state'){onlineState.remoteSongMs=Number(m.songMs)||0;onlineState.remoteScore=Number(m.score)||0;onlineState.remoteCombo=Number(m.combo)||0;onlineState.remoteAccuracy=Number(m.accuracy)||100;onlineState.remoteMaxCombo=Number(m.maxCombo)||0;onlineState.remoteJudgement=m.judgement||'';onlineState.remoteFinished=!!m.finished;renderOnlineOpponentView();return;}if(m.t==='result'){onlineState.remoteResult=m.result||null;onlineState.remoteFinished=true;checkOnlineBothFinished();return;}if(m.t==='rematch'){onlineState.rematchRemote=true;maybePerformOnlineRematch();return;}if(m.t==='leave'){setOnlineStatusText('相手が退出しました');return;}}else if(raw instanceof ArrayBuffer){const a=onlineState.incomingAudio;if(!a)return;a.chunks.push(raw);a.bytes+=raw.byteLength;}}
+		async function prepareOnlineSelectedAudio(){if(!onlineState.selectedOwner)return;const owner=onlineState.selectedOwner===onlineState.role;if(owner){const localTrackId=onlineState.room?.[onlineState.role]?.track?.id||selectedFileId;const rec=await getTrackRecordById(localTrackId);if(!rec)throw new Error('選択曲が見つかりません');onlineState.sharedAudioBytes=rec.data.slice(0);onlineState.sharedAudioReady=true;await loadSharedAudioForOnline(rec.data,rec.name);if(onlineState.dc?.readyState==='open')await sendOnlineAudio(rec.data,rec.name,rec.type||'audio/*');}else setOnlineStatusText('相手の曲を待っています…');}
+		async function sendOnlineAudio(data,name,mime){if(!onlineState.dc||onlineState.dc.readyState!=='open')return;onlineSend({t:'audio-meta',name,mime,size:data.byteLength});const ch=48*1024;for(let i=0;i<data.byteLength;i+=ch){while(onlineState.dc.bufferedAmount>1024*1024)await new Promise(r=>setTimeout(r,12));onlineState.dc.send(data.slice(i,Math.min(i+ch,data.byteLength)));}onlineSend({t:'audio-end'});}
+		async function finishIncomingOnlineAudio(){const a=onlineState.incomingAudio;if(!a)return;const total=new Uint8Array(a.bytes);let off=0;for(const c of a.chunks){total.set(new Uint8Array(c),off);off+=c.byteLength;}onlineState.sharedAudioBytes=total.buffer;await loadSharedAudioForOnline(total.buffer,a.name);onlineState.incomingAudio=null;onlineState.sharedAudioReady=true;onlineSend({t:'audio-ready'});if(onlineState.role==='host')maybeMarkOnlineAudioReady();}
+		async function getTrackRecordById(id){return await new Promise(res=>{if(!db)return res(null);try{const q=db.transaction(['tracks'],'readonly').objectStore('tracks').get(id);q.onsuccess=()=>res(q.result||null);q.onerror=()=>res(null);}catch(e){res(null);}});}
+		async function loadSharedAudioForOnline(data,name){if(!audioContext)audioContext=new(window.AudioContext||window.webkitAudioContext)({latencyHint:'interactive'});audioBuffer=await audioContext.decodeAudioData(data.slice(0));selectedFileName=name;selectedFileId=null;onlineState.sharedTrackName=name;onlineState.localAudioReady=true;onlineState.opponentChartGenerated=false;if(onlineState.remoteDifficulty)try{onlineState.opponentChart=generateChartFromAudio(audioBuffer,onlineState.remoteDifficulty,onlineState.remoteKeyMode,`${name}_${onlineState.remoteDifficulty}_${onlineState.remoteKeyMode}`,onlineState.remoteSpeed);onlineState.opponentChartGenerated=true;}catch(e){}maybeMarkOnlineAudioReady();}
+		function maybeMarkOnlineAudioReady(){if(!(onlineState.sharedAudioReady&&onlineState.localAudioReady))return;onlineSend({t:'audio-ready-local'});if(onlineState.role==='host'&&onlineState.connected&&!onlineState.room?.startAtEpoch)setTimeout(prepareOnlineStart,300);}
+		async function prepareOnlineStart(){if(!onlineState.active||onlineState.role!=='host'||!onlineState.connected||!onlineState.sharedAudioReady||!onlineState.localAudioReady||!onlineState.remoteAudioReady)return;const r=await ghReadJson(`aetheria-rooms/${onlineState.roomCode}.json`,false).catch(()=>null);if(!r||r.json.round!==onlineState.matchRound||r.json.startAtEpoch)return;const start=Date.now()+5200;await ghUpdateRoom(x=>{x.status='countdown';x.startAtEpoch=start;return x;},`Aetheria countdown ${onlineState.roomCode}`);onlineSend({t:'start',startAtEpoch:start});await maybeStartOnlineGame(start);}
+		async function maybeStartOnlineGame(epoch){if(!onlineState.active||isRunning||onlineState.resultShown||!onlineState.localAudioReady)return;const localEpoch=Number(epoch)+(onlineState.role==='guest'?Number(onlineState.clockOffsetMs||0):0);const cd=document.getElementById('online-countdown'),num=document.getElementById('online-countdown-number');if(cd)cd.style.display='flex';const tick=()=>{const now=Date.now(),r=Math.ceil((localEpoch-now)/1000);if(num)num.textContent=r>0?r:'GO';if(now<localEpoch){requestAnimationFrame(tick);}else{if(cd)cd.style.display='none';initiateOnlineRound(localEpoch);}};tick();}
+		function initiateOnlineRound(epoch){const om=document.getElementById('online-modal-layer');if(om)om.style.display='none';onlineState.resultShown=false;onlineState.localFinished=false;onlineState.remoteFinished=false;onlineState.localResult=null;onlineState.remoteResult=null;onlineState.rateAwarded=false;document.getElementById('result-overlay').style.display='none';document.getElementById('online-final-block').style.display='none';document.getElementById('main-play-field').classList.add('online-match-active');document.getElementById('pause-btn').style.display='none';isEditMode=false;isAutoMode=false;initiateGame(false,epoch);}
+		function sendOnlineState(force=false){if(!onlineState.active||onlineState.dc?.readyState!=='open')return;const n=performance.now();if(!force&&n-onlineState.lastStateSentAt<ONLINE_STATE_SEND_MS)return;onlineState.lastStateSentAt=n;const total=countPerfect+countGreat+countMiss,acc=total?((countPerfect+countGreat*.5)/total*100):100;onlineSend({t:'state',songMs:window.curSongMs||0,score:Math.round(currentScore),combo:currentCombo,maxCombo,accuracy:Number(acc.toFixed(2)),judgement:elJudgeRating?.textContent||'',finished:onlineState.localFinished});}
+		function onlineSetGameplayViewFinished(){sendOnlineState(true);const t=document.getElementById('top-bar-music-title');if(t)t.textContent=`ONLINE / ${profileName} / 結果待ち…`;}
+		function checkOnlineBothFinished(){if(!onlineState.localFinished||!onlineState.remoteResult){showOnlineWaitingResult();return;}showOnlineFinalResults();}
+		function showOnlineWaitingResult(){if(onlineState.resultShown)return;document.getElementById('result-overlay').classList.add('online-result-mode');document.getElementById('result-overlay').style.display='flex';document.getElementById('online-final-block').style.display='block';document.getElementById('result-editor-block').style.display='none';const t=document.getElementById('online-final-title');t.textContent='WAITING';t.className='online-final-title draw';document.getElementById('online-final-wait').textContent='相手の終了を待っています…';document.getElementById('online-rematch-btn').style.display='none';fillOnlineFinalCard('self',profileName,onlineState.localResult||{score:Math.round(currentScore),accuracy:100,maxCombo});fillOnlineFinalCard('opponent',onlineState.remoteName,{score:onlineState.remoteScore||0,accuracy:onlineState.remoteAccuracy||100,maxCombo:onlineState.remoteMaxCombo||0});}
+		function fillOnlineFinalCard(w,n,r){const p=w==='self'?'online-final-self':'online-final-opponent';document.getElementById(`${p}-name`).textContent=n||'Player';document.getElementById(`${p}-score`).textContent=String(Math.round(r?.score||0)).padStart(8,'0');document.getElementById(`${p}-meta`).textContent=`ACC ${Number(r?.accuracy||100).toFixed(2)}% / MAX COMBO ${r?.maxCombo||0}`;}
+		function showOnlineFinalResults(){if(onlineState.resultShown)return;onlineState.resultShown=true;const a=onlineState.localResult||{},b=onlineState.remoteResult||{},ls=Number(a.score)||0,rs=Number(b.score)||0;let v='DRAW',c='draw',gain=0;if(ls>rs){v='WIN';c='win';if(!onlineState.rateAwarded){changeOnlineRate(10);onlineState.rateAwarded=true;gain=10;}}else if(ls<rs){v='LOSE';c='lose';onlineState.rateAwarded=true;}fillOnlineFinalCard('self',profileName,a);fillOnlineFinalCard('opponent',onlineState.remoteName,b);const t=document.getElementById('online-final-title');t.textContent=v;t.className=`online-final-title ${c}`;document.getElementById('online-final-self-rate').textContent=`RATE ${gain>=0?'+':''}${gain}  →  ${onlineRate}/${ONLINE_RATE_MAX}`;document.getElementById('online-final-wait').textContent='二人とも「再戦」を押すと、新しい対戦が始まります。';document.getElementById('online-rematch-btn').style.display='inline-block';document.getElementById('online-rematch-btn').disabled=false;document.getElementById('online-final-block').style.display='block';document.getElementById('result-overlay').classList.add('online-result-mode');document.getElementById('result-overlay').style.display='flex';document.getElementById('main-play-field').classList.add('online-match-active');}
+		async function requestOnlineRematch(){if(!onlineState.active||!onlineState.connected)return;onlineState.rematchSelf=true;const b=document.getElementById('online-rematch-btn');if(b){b.disabled=true;b.textContent='再戦待機中…';}onlineSend({t:'rematch'});try{await ghUpdateRoom(r=>{r.status='results';r.rematch[onlineState.role]=true;return r;},`Aetheria rematch ${onlineState.roomCode}`);}catch(e){}maybePerformOnlineRematch();}
+		async function maybePerformOnlineRematch(){if(!onlineState.rematchSelf||!onlineState.rematchRemote||onlineState.role!=='host')return;onlineState.currentMatchId='';onlineState.resultShown=false;onlineState.localFinished=false;onlineState.remoteFinished=false;onlineState.localResult=null;onlineState.remoteResult=null;onlineState.rematchSelf=false;onlineState.rematchRemote=false;await ghUpdateRoom(r=>{r.status='ready';r.startAtEpoch=null;r.selectedOwner=null;r.selectedTrack=null;r.results={};r.rematch={host:false,guest:false};return r;},`Aetheria rematch room ${onlineState.roomCode}`).catch(()=>{});setTimeout(()=>prepareOnlineMatchFromHost(onlineState.room),200);}
+		function resetOnlineRoundState(){onlineState.localFinished=false;onlineState.remoteFinished=false;onlineState.localResult=null;onlineState.remoteResult=null;onlineState.resultShown=false;onlineState.rematchSelf=false;onlineState.rematchRemote=false;onlineState.sharedAudioReady=false;onlineState.localAudioReady=false;onlineState.remoteAudioReady=false;}
+		function leaveOnlineMatch(){if(!onlineState.active)return;try{onlineSend({t:'leave'});}catch(e){};const restore=onlineState.localOriginalSelection;if(restore){selectedFileId=restore.id;selectedFileName=restore.name;audioBuffer=restore.buffer;const info=document.getElementById('music-info-btn');if(info)info.textContent='曲名: '+(removeMp3Extension(selectedFileName)||'未選択');}resetOnlineState();cleanAndStopAudio();document.getElementById('online-countdown').style.display='none';document.getElementById('result-overlay').classList.remove('online-result-mode');document.getElementById('result-overlay').style.display='none';document.getElementById('start-overlay').style.display='flex';document.getElementById('main-play-field').classList.remove('online-match-active');loadMusicListFromDB();refreshOnlineUi();}
+		function resetOnlineState(){if(onlineState.pollTimer)clearInterval(onlineState.pollTimer);try{onlineState.dc?.close();}catch(e){}try{onlineState.pc?.close();}catch(e){}onlineState={active:false,role:null,roomCode:"",roomPassword:"",room:null,pc:null,dc:null,signalingStarted:false,pollTimer:null,pollBusy:false,connected:false,sharedAudioReady:false,localAudioReady:false,remoteAudioReady:false,sharedTrackName:"",selectedOwner:null,selectedTrackKey:"",sharedAudioBytes:null,localOriginalSelection:null,localResult:null,remoteResult:null,localFinished:false,remoteFinished:false,rematchSelf:false,rematchRemote:false,matchRound:0,currentMatchId:"",resultShown:false,rateAwarded:false,remoteSongMs:0,remoteScore:0,remoteCombo:0,remoteAccuracy:100,remoteMaxCombo:0,remoteJudgement:"",lastStateSentAt:0,remoteDifficulty:"NORMAL",remoteKeyMode:4,remoteSpeed:3.8,remoteName:"相手",opponentChart:null,opponentChartGenerated:false,incomingAudio:null,pendingStartEpoch:null,matchPreparing:false,clockOffsetMs:0,clockSyncSentAt:0};document.getElementById('main-play-field')?.classList.remove('online-match-active');refreshOnlineUi();}
+		function renderOnlineOpponentView(){const c=document.getElementById('online-opponent-canvas');if(!c)return;const r=c.getBoundingClientRect(),dpr=Math.min(1.5,devicePixelRatio||1),w=Math.max(240,Math.floor(r.width)),h=Math.max(160,Math.floor(r.height));if(c.width!==w*dpr||c.height!==h*dpr){c.width=Math.floor(w*dpr);c.height=Math.floor(h*dpr);}const x=c.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,w,h);x.fillStyle='rgba(8,9,20,.98)';x.fillRect(0,0,w,h);const n=Math.max(1,onlineState.remoteKeyMode||4),lw=w/n;for(let i=0;i<n;i++){x.strokeStyle='rgba(0,210,255,.12)';x.strokeRect(i*lw,0,lw,h);}const sp=.12*(onlineState.remoteSpeed||3.8),ty=h*.78,sy=20,song=onlineState.remoteSongMs||0,chart=onlineState.opponentChart||[];let drawn=0;for(const q of chart){if(q.expectTime<song-250||q.expectTime>song+(ty-sy)/sp+900)continue;const y=ty-(q.expectTime-song)*sp,xx=q.lane*lw+lw*.08,ww=lw*.84;if(y<-80||y>h+80)continue;x.fillStyle=q.type==='long'?'rgba(255,105,180,.92)':'rgba(0,217,255,.92)';q.type==='long'?x.fillRect(xx,y-Math.max(10,q.duration*sp),ww,Math.max(10,q.duration*sp)):x.fillRect(xx,y,ww,10);if(++drawn>=28)break;}x.strokeStyle='rgba(255,255,255,.7)';x.lineWidth=2;x.beginPath();x.moveTo(0,ty);x.lineTo(w,ty);x.stroke();const score=document.getElementById('online-opponent-score');if(score)score.textContent=String(Math.round(onlineState.remoteScore)).padStart(8,'0');const combo=document.getElementById('online-opponent-combo');if(combo)combo.textContent=`COMBO ${onlineState.remoteCombo}`;const acc=document.getElementById('online-opponent-accuracy');if(acc)acc.textContent=`ACC ${Number(onlineState.remoteAccuracy||100).toFixed(2)}%`;const name=document.getElementById('online-opponent-name');if(name)name.textContent=onlineState.remoteName||'相手';const sub=document.getElementById('online-opponent-sub');if(sub)sub.textContent=onlineState.remoteFinished?'FINISHED':'ONLINE / LIVE';}
+		window.addEventListener('resize',()=>{if(onlineState.active)renderOnlineOpponentView();});
+</script>
+</body>
+</html>
